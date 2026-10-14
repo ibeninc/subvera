@@ -1,26 +1,210 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+/*
+ * Subvera design tokens.
+ * Layout, rhythm and motion follow DESIGN.md; colour and type follow the
+ * Subvera Brand Sheet v1.0 (Depth Navy / Sea Teal / Deep Blue / Slate / Mist,
+ * Space Grotesk + IBM Plex Sans).
+ */
+@theme {
+  --font-display: var(--font-space-grotesk), Arial, sans-serif;
+  --font-sans: var(--font-plex-sans), Arial, sans-serif;
+  --font-mono: var(--font-plex-mono), ui-monospace, monospace;
+
+  /* brand */
+  --color-navy: #0e2a47; /* Depth Navy: text, headings, footer, dark buttons */
+  --color-teal: #14b8a6; /* Sea Teal: primary CTA, waves, accents (never small text on white) */
+  --color-deep: #143a63; /* Deep Blue: badge on dark, dark panels */
+  --color-slate: #8a94a6; /* Slate Grey: captions, secondary text */
+  --color-mist: #f5f7fa; /* Mist: page and section backgrounds */
+
+  /* derived */
+  --color-ink: #0e2a47;
+  --color-teal-dark: #0f8f81; /* teal for text on white (AA at 14px+ bold) */
+  --color-teal-tint: #e8f8f6; /* selected option fill */
+  --color-hairline: #e7ebf1; /* dividers inside a surface */
+  --color-edge: #d9e0e8; /* outer edge of cards, panels and inputs: one step firmer than a divider */
+  --color-line: rgb(14 42 71 / 0.1);
+  --color-dot: #d8dee7;
+
+  /* status (findings) */
+  --color-high-bg: #fde8e8;
+  --color-high-fg: #b42318;
+  --color-medium-bg: #fff3d6;
+  --color-medium-fg: #92570b;
+  --color-missing-bg: #fff7e6;
+  --color-met-bg: #e3f6f3;
+  --color-medium: #d97706; /* non-compliant, medium (dot / bar) */
+  --color-missing: #6f8fbf; /* missing information: cool blue so it never reads as a severity */
+
+  /* app text: three levels only, all AA on white and on the canvas */
+  --color-fg-muted: #4a5b6e; /* secondary text */
+  --color-fg-subtle: #5f6f83; /* meta, captions, labels */
+  --color-canvas: #f1f4f8; /* app background behind the main panel */
+
+  --radius-pill: 9999px;
+  --radius-2xl: 24px;
+  --radius-xl: 16px;
+  --radius-lg: 12px;
+  --radius-md: 10px;
+  --radius-sm: 8px;
+  --radius-xs: 6px;
+  --radius-chip: 4px;
+
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+@layer base {
+  html {
+    scroll-behavior: smooth;
+    scroll-padding-top: 72px;
+  }
+  body {
+    background: #fff;
+    color: var(--color-navy);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-family: var(--font-display);
+    letter-spacing: -0.025em;
+  }
+  ::selection {
+    background: var(--color-teal);
+    color: var(--color-navy);
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+@layer components {
+  .container-x {
+    width: 100%;
+    max-width: 80rem;
+    margin-inline: auto;
+    padding-inline: 2.5rem;
+  }
+  @media (max-width: 767px) {
+    .container-x {
+      padding-inline: 1.25rem;
+    }
+  }
+
+  /* Section rhythm: generous vertical space between blocks */
+  .section {
+    padding-block: 144px;
+  }
+  @media (max-width: 991px) {
+    .section {
+      padding-block: 112px;
+    }
+  }
+  @media (max-width: 767px) {
+    .section {
+      padding-block: 88px;
+    }
+  }
+
+  /* Type scale (DESIGN.md §2.4), fluid so headings scale smoothly between phone and desktop */
+  .t-display-xl {
+    font-size: clamp(2.0625rem, 1.2rem + 3.9vw, 4.25rem);
+    line-height: 1.04;
+    font-weight: 600;
+    letter-spacing: -0.035em;
+  }
+  .t-display-lg {
+    font-size: clamp(2.125rem, 1.2rem + 3vw, 3.75rem);
+    line-height: 1.06;
+    font-weight: 600;
+    letter-spacing: -0.03em;
+  }
+  .t-h2 {
+    font-size: clamp(1.875rem, 1.1rem + 2.4vw, 3rem);
+    line-height: 1.1;
+    font-weight: 600;
+    letter-spacing: -0.03em;
+  }
+  .t-body-lg {
+    font-size: clamp(1rem, 0.94rem + 0.3vw, 1.125rem);
+    line-height: 1.65;
+  }
+
+  .eyebrow {
+    font-size: 12px;
+    line-height: 1.2;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--color-teal-dark);
+  }
+
+  /* Dot-grid backgrounds (DESIGN.md §3.4) */
+  .bg-dots {
+    background-color: var(--color-mist);
+    background-image: radial-gradient(circle, var(--color-dot) 1.75px, transparent 2px);
+    background-size: 44px 44px;
+    background-position: 22px 22px;
+  }
+  /* Hero waterline (components/visuals/Waterline.tsx): drift sideways + swell up and down */
+  .waterline-drift {
+    animation: waterline-drift var(--drift, 14s) linear infinite;
+    will-change: transform;
+  }
+  .waterline-reverse {
+    animation-direction: reverse;
+  }
+  .waterline-swell {
+    transform-origin: 50% 35%;
+    animation: waterline-swell var(--swell, 5s) ease-in-out var(--swell-delay, 0s) infinite alternate;
+    will-change: transform;
+  }
+  @keyframes waterline-drift {
+    to {
+      transform: translateX(-50%);
+    }
+  }
+  @keyframes waterline-swell {
+    from {
+      transform: translateY(-4px) scaleY(0.75);
+    }
+    to {
+      transform: translateY(5px) scaleY(1.25);
+    }
+  }
+  @media (max-width: 767px) {
+    .waterline-drift {
+      animation-duration: var(--drift-sm, 8s);
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .waterline-drift,
+    .waterline-swell {
+      animation: none;
+    }
+  }
+  .bg-dots-tint {
+    background-image: radial-gradient(circle, rgb(14 42 71 / 0.12) 1px, transparent 1.5px);
+    background-size: 16px 16px;
+  }
+  .bg-dots-dark {
+    background-image: radial-gradient(circle, rgb(255 255 255 / 0.09) 1px, transparent 1.5px);
+    background-size: 16px 16px;
+  }
+  .bg-dots-app {
+    background-color: #fafbfc;
+    background-image: radial-gradient(circle, #e3e8ee 1px, transparent 1.5px);
+    background-size: 16px 16px;
+  }
+
+  .nav-hairline {
+    box-shadow: 0 17px 0 -16px var(--color-hairline);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
 }

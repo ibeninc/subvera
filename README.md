@@ -1,36 +1,60 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Subvera — web
 
-## Getting Started
+Next.js 16 (App Router) + Tailwind CSS v4 + Motion. Marketing site and clickable app prototype for Subvera.
 
-First, run the development server:
+- **Layout, rhythm and motion:** `DESIGN.md`
+- **Colour, type and logo:** Subvera Brand Sheet v1.0 (Depth Navy `#0E2A47`, Sea Teal `#14B8A6`, Deep Blue `#143A63`, Slate `#8A94A6`, Mist `#F5F7FA`; Space Grotesk + IBM Plex Sans, IBM Plex Mono for clause references)
+- **Content:** Subvera app mockups
+
+## Run
+
+Needs Node 20.9 or newer.
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
+npm run dev      # http://localhost:3000
+npm run build    # production build, same as Vercel runs
+npm run lint
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Deploy (Vercel)
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Import the repo in Vercel and keep the defaults: framework **Next.js**, install `npm ci` (from `package-lock.json`),
+build `next build`, no output directory override. No environment variables are needed. Every push to the default
+branch deploys to production; other branches get preview URLs.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Commit `package-lock.json` with any dependency change so Vercel installs exactly the same versions.
 
-## Learn More
+## Routes
 
-To learn more about Next.js, take a look at the following resources:
+| Route | Screen |
+|---|---|
+| `/` | Landing page, with a scripted product demo under the hero (cursor on desktop, taps on phones) |
+| `/sign-in` | Sign in (prototype: goes straight to `/dashboard`) |
+| `/dashboard` | Project overview: high-severity findings, open findings by document, recent reviews |
+| `/reviews` | All reviews, searchable |
+| `/reviews/new` | New review: document, umbilical scope, project scope, standards and upload |
+| `/reviews/[id]` | Review in progress (simulated, about 9 s), then findings: filters, search, bulk status, detail panel |
+| `/reports` | Report preview, Export PDF (print) and Export Word, export history |
+| `/documents` | Project documents, with replaced revisions marked |
+| `/members`, `/settings` | Team and project settings |
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+The app keeps its state in memory for the session (`components/app/AppContext.tsx`); reloading resets it.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Where things live
 
-## Deploy on Vercel
+- `app/globals.css`: design tokens (`@theme`), type scale, dot-grid backgrounds
+- `components/ui`: Button, Logo (inline SVG, geometry in `logo-geometry.ts`), StackCard, Slider
+- `components/sections`: landing page sections. `demo.tsx` is the scripted demo engine shared by
+  `ProductShot.tsx` (desktop) and `MobileDemo.tsx` (phones and tablets); each file has its scripts at the top
+- `components/visuals`: animated feature panels
+- `components/app`: app shell (sidebar, mobile menu), shared UI (`ui.tsx`), page building blocks (`kit.tsx`),
+  wizard form controls, app state
+- `lib/data.ts`: mockup content (findings, wizard options)
+- `public/brand`: logo files for use outside the site (SVG lockups and marks). The site itself renders the logo inline.
+- `scripts/build-logo.py`: regenerates the logo SVGs, `components/ui/logo-geometry.ts` and the app icons from one
+  geometry. Needs `pip install fonttools brotli pillow` and one prior app run (it reads Space Grotesk from `.next`).
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Not wired up yet
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Auth, file upload to a backend, the review job itself, and the demo request form are front-end only.
