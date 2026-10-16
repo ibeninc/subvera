@@ -69,8 +69,8 @@ export default function Home() {
           title="A record you can put on file"
           body={
             <p>
-              Export the findings as a PDF or Word report and attach it to your review. Everyone on the project works from the
-              same list.
+              Export the findings straight into your project comment sheet, and keep the PDF report on file. Every finished review
+              is archived, ready to download again or reopen.
             </p>
           }
           visual={<ExportReport />}

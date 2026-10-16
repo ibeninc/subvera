@@ -5,21 +5,20 @@ import { LoaderCircle, Plus } from "lucide-react";
 import { useState } from "react";
 import { useApp } from "@/components/app/AppContext";
 import { EmptyState, FileTile, FilterTabs, PageBody, PageIntro, Pagination, SearchField } from "@/components/app/kit";
-import { Person, SeverityIcon, StatusPill, appButton, docName, shortDate, surface } from "@/components/app/ui";
-import { breakdown, type Review } from "@/lib/data";
+import { Person, ResultsSummary, StatusPill, appButton, docName, shortDate, surface } from "@/components/app/ui";
+import { isExported, type Review } from "@/lib/data";
 
 const PAGE_SIZE = 10;
 
-const issuesOf = (r: Review) => {
-  const b = breakdown(r);
-  return b.high + b.medium + b.missing;
-};
-
+/*
+ * Reviews in progress: checking, ready to export, or exported and waiting to be archived.
+ * Subvera doesn't track findings once they're out; that happens in the project comment sheet.
+ */
 const FILTERS = [
   { key: "all", label: "All", test: () => true },
-  { key: "open", label: "Open", test: (r: Review) => r.status === "Complete" && issuesOf(r) > 0 },
-  { key: "clear", label: "All clear", test: (r: Review) => r.status === "Complete" && issuesOf(r) === 0 },
   { key: "running", label: "Checking", test: (r: Review) => r.status === "Running" },
+  { key: "ready", label: "Ready to export", test: (r: Review) => r.status === "Complete" && !isExported(r) },
+  { key: "exported", label: "Exported", test: (r: Review) => r.status === "Complete" && isExported(r) },
 ] as const;
 type FilterKey = (typeof FILTERS)[number]["key"];
 
@@ -27,18 +26,20 @@ const WORDS = ["No", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eig
 
 const word = (n: number) => WORDS[n] ?? String(n);
 
-function summarise(reviews: Review[]) {
-  if (reviews.length === 0) return "No reviews yet. Start one and the results will show up here.";
+function summarise(reviews: Review[], archived: number) {
+  const tail = archived > 0 ? ` Finished reviews are in the archive.` : "";
+  if (reviews.length === 0) return `Nothing in progress. Start a review and the results will show up here.${tail}`;
   const running = reviews.filter((r) => r.status === "Running").length;
-  const open = reviews.filter((r) => r.status === "Complete" && issuesOf(r) > 0).length;
-  const first = `${word(reviews.length)} ${reviews.length === 1 ? "review" : "reviews"} so far.`;
-  if (running > 0) return `${first} ${word(running)} ${running === 1 ? "is" : "are"} still being checked.`;
-  if (open === 0) return `${first} None of them have anything left open.`;
-  return `${first} ${word(open)} ${open === 1 ? "still has" : "still have"} findings to work through.`;
+  const ready = reviews.filter((r) => r.status === "Complete" && !isExported(r)).length;
+  const first = `${word(reviews.length)} ${reviews.length === 1 ? "review" : "reviews"} in progress.`;
+  if (running > 0) return `${first} ${word(running)} ${running === 1 ? "is" : "are"} still being checked.${tail}`;
+  if (ready > 0) return `${first} ${word(ready)} ${ready === 1 ? "is" : "are"} ready to export to the comment sheet.${tail}`;
+  return `${first} All exported, ready to archive.${tail}`;
 }
 
 export function ReviewsList() {
-  const { reviews } = useApp();
+  const { reviews: all } = useApp();
+  const reviews = all.filter((r) => r.status !== "Archived");
   const [q, setQ] = useState("");
   const [filter, setFilter] = useState<FilterKey>("all");
   const [page, setPage] = useState(1);
@@ -54,8 +55,8 @@ export function ReviewsList() {
     <>
       <PageIntro
         eyebrow="Reviews"
-        title="All reviews"
-        summary={summarise(reviews)}
+        title="Reviews in progress"
+        summary={summarise(reviews, all.length - reviews.length)}
         actions={
           <Link href="/reviews/new" className={appButton("primary", "h-9 px-3.5")}>
             <Plus size={15} strokeWidth={2} /> New review
@@ -88,12 +89,12 @@ export function ReviewsList() {
           <div className={`mt-4 ${surface}`}>
             <div
               aria-hidden
-              className="hidden grid-cols-[minmax(0,1fr)_200px_120px_120px_80px] gap-x-6 border-b border-hairline px-5 py-2.5 text-[12.5px] text-fg-subtle lg:grid"
+              className="hidden grid-cols-[minmax(0,1fr)_200px_130px_120px_80px] gap-x-6 border-b border-hairline px-5 py-2.5 text-[12.5px] text-fg-subtle lg:grid"
             >
               <span>Document</span>
               <span>Results</span>
               <span>Status</span>
-              <span>Started by</span>
+              <span>Reviewed by</span>
               <span className="text-right">Date</span>
             </div>
 
@@ -101,7 +102,16 @@ export function ReviewsList() {
               query ? (
                 <EmptyState title={`Nothing matches “${q.trim()}”`}>Try part of a document name, a type like &ldquo;FAT&rdquo;, or a standard.</EmptyState>
               ) : (
-                <EmptyState title="No reviews here yet">Reviews you start will appear in this list.</EmptyState>
+                <EmptyState
+                  title="Nothing in progress"
+                  action={
+                    <Link href="/archive" className={appButton("outline", "h-9 px-3.5")}>
+                      Open the archive
+                    </Link>
+                  }
+                >
+                  Reviews you start appear here until you archive them.
+                </EmptyState>
               )
             ) : (
               <ul className="divide-y divide-hairline">
@@ -122,23 +132,20 @@ export function ReviewsList() {
 }
 
 /*
- * Desktop: document | results | status | started by | date
+ * Desktop: document | results | status | reviewed by | date
  * Phone:   file tile, name and type, then results and status on one line
  */
 function ReviewRow({ r }: { r: Review }) {
-  const b = breakdown(r);
-  const issues = b.high + b.medium + b.missing;
   const running = r.status === "Running";
-  const met = b.met + b.resolved;
 
   const status = running ? (
     <StatusPill tone="blue" pulse>
       Checking
     </StatusPill>
-  ) : issues > 0 ? (
-    <StatusPill tone="neutral">{issues} open</StatusPill>
+  ) : isExported(r) ? (
+    <StatusPill tone="teal">Exported</StatusPill>
   ) : (
-    <StatusPill tone="teal">All clear</StatusPill>
+    <StatusPill tone="neutral">Ready to export</StatusPill>
   );
 
   const results = running ? (
@@ -147,44 +154,13 @@ function ReviewRow({ r }: { r: Review }) {
       In progress
     </span>
   ) : (
-    <span className="flex flex-col gap-2">
-      <span className="flex h-1.5 max-w-[180px] gap-[2px] overflow-hidden rounded-full" aria-hidden>
-        {[
-          { n: b.high, c: "bg-high-fg" },
-          { n: b.medium, c: "bg-medium" },
-          { n: b.missing, c: "bg-missing" },
-          { n: met, c: "bg-teal/60" },
-        ]
-          .filter((s) => s.n > 0)
-          .map((s, i) => (
-            <span key={i} className={`h-full min-w-1.5 rounded-full ${s.c}`} style={{ flexGrow: s.n }} />
-          ))}
-      </span>
-      <span className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px] text-fg-subtle tabular-nums">
-        {b.high > 0 && (
-          <span className="inline-flex items-center gap-1.5" title="High severity">
-            <SeverityIcon kind="non-compliant" severity="High" /> {b.high}
-          </span>
-        )}
-        {b.medium > 0 && (
-          <span className="inline-flex items-center gap-1.5" title="Medium severity">
-            <SeverityIcon kind="non-compliant" severity="Medium" /> {b.medium}
-          </span>
-        )}
-        {b.missing > 0 && (
-          <span className="inline-flex items-center gap-1.5" title="Missing information">
-            <SeverityIcon kind="missing" /> {b.missing}
-          </span>
-        )}
-        <span>{met} met</span>
-      </span>
-    </span>
+    <ResultsSummary r={r} />
   );
 
   return (
     <Link
       href={`/reviews/${r.id}`}
-      className="group grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-3.5 gap-y-3 px-5 py-4 text-[14px] transition-colors duration-150 hover:bg-mist/60 lg:grid-cols-[minmax(0,1fr)_200px_120px_120px_80px] lg:gap-x-6"
+      className="group grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-3.5 gap-y-3 px-5 py-4 text-[14px] transition-colors duration-150 hover:bg-mist/60 lg:grid-cols-[minmax(0,1fr)_200px_130px_120px_80px] lg:gap-x-6"
     >
       <span className="col-span-2 flex min-w-0 items-center gap-3.5 lg:col-span-1">
         <FileTile />
@@ -193,7 +169,7 @@ function ReviewRow({ r }: { r: Review }) {
             {docName(r.document)}
           </span>
           <span className="mt-0.5 block text-[13px] text-fg-subtle lg:truncate">
-            {r.docType}, {r.standards.join(" and ")}
+            {r.docType}, {r.standards.join(", ")}
             <span className="lg:hidden">, {shortDate(r.createdAt) === "Today" ? "today" : shortDate(r.createdAt)}</span>
           </span>
         </span>
@@ -208,7 +184,7 @@ function ReviewRow({ r }: { r: Review }) {
       <span className="max-lg:hidden">{results}</span>
       <span className="max-lg:hidden">{status}</span>
       <span className="text-[13.5px] max-lg:hidden">
-        <Person id={r.createdBy} />
+        <Person id={r.reviewedBy} />
       </span>
       <span className="text-right text-[13.5px] text-fg-muted tabular-nums max-lg:hidden">{shortDate(r.createdAt)}</span>
     </Link>

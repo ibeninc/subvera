@@ -2,10 +2,10 @@
 
 import { ChevronLeft, ChevronRight, FileText, Search } from "lucide-react";
 import { LayoutGroup, motion } from "motion/react";
-import { useId, type ReactNode } from "react";
+import { useEffect, useId, useRef, type ReactNode } from "react";
 
 /*
- * Page-level building blocks shared by the app screens, following the Overview page:
+ * Page-level building blocks shared by the app screens:
  * an intro header with the brand swell, section titles, filter tabs, search, pagination.
  */
 
@@ -250,6 +250,54 @@ export function EmptyState({ title, children, action }: { title: string; childre
       <p className="text-[15px] font-medium">{title}</p>
       {children && <p className="mx-auto mt-1 max-w-[46ch] text-[14px] text-fg-muted">{children}</p>}
       {action && <div className="mt-4 flex justify-center">{action}</div>}
+    </div>
+  );
+}
+
+/** A small confirm dialog on the app's surfaces. Escape or the backdrop closes it. */
+export function Dialog({
+  title,
+  children,
+  actions,
+  onClose,
+}: {
+  title: string;
+  children: ReactNode;
+  actions: ReactNode;
+  onClose: () => void;
+}) {
+  const id = useId();
+  const panel = useRef<HTMLDivElement>(null);
+
+  const close = useRef(onClose);
+  useEffect(() => {
+    close.current = onClose;
+  }, [onClose]);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && close.current();
+    window.addEventListener("keydown", onKey);
+    // Start keyboard focus inside the dialog, on its last action (the confirm).
+    const focusable = panel.current?.querySelectorAll<HTMLElement>("button, a");
+    focusable?.[focusable.length - 1]?.focus();
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 print:hidden" role="dialog" aria-modal="true" aria-labelledby={id}>
+      <button type="button" aria-label="Close" className="absolute inset-0 bg-navy/30" onClick={onClose} />
+      <div
+        ref={panel}
+        className="relative w-full max-w-[540px] rounded-[14px] bg-white shadow-[0_24px_60px_-20px_rgba(14,42,71,.45)] ring-1 ring-edge"
+      >
+        <div className="px-6 pt-5 pb-4 max-md:px-5">
+          <h2 id={id} className="text-[17px] font-semibold tracking-[-0.01em]">
+            {title}
+          </h2>
+          <div className="mt-2 text-[14px] leading-relaxed text-fg-muted">{children}</div>
+        </div>
+        <div className="flex flex-wrap justify-end gap-2 rounded-b-[14px] border-t border-hairline bg-mist/50 px-6 py-3.5 max-md:px-5">{actions}</div>
+      </div>
     </div>
   );
 }

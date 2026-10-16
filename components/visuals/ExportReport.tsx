@@ -7,18 +7,16 @@ import { SAMPLE_DOCUMENT } from "@/lib/data";
 import { Badge } from "@/components/ui/Logo";
 
 const lines = [
-  ["High", "Tensile utilisation above the acceptance limit"],
-  ["High", "Design life is inconsistent"],
-  ["Medium", "Minimum bend radius differs between sections"],
+  ["Non-compliant", "Tensile utilisation above the acceptance limit"],
+  ["Non-compliant", "Design life is inconsistent"],
+  ["Non-compliant", "Minimum bend radius differs between sections"],
   ["Missing", "Hydrostatic test hold duration"],
   ["Missing", "Fatigue safety factor"],
 ];
 
-/** Deep-blue panel: a report widget rises in and a cursor glides to Export PDF (DESIGN.md PurpleScheduler). */
 const bar: Record<string, string> = {
-  High: "bg-high-fg",
-  Medium: "bg-[#D97706]",
-  Missing: "bg-[#E8A33D]",
+  "Non-compliant": "bg-high-fg",
+  Missing: "bg-missing",
 };
 
 /** Deep-blue panel: the exported report itself, with the format switch and download under it. */
@@ -49,7 +47,7 @@ export function ExportReport() {
             {[
               ["3", "Non-compliant"],
               ["4", "Missing"],
-              ["38", "Met"],
+              ["38", "Compliant"],
             ].map(([v, l]) => (
               <div key={l} className="px-1">
                 <dd className="font-display text-[18px] leading-none font-semibold">{v}</dd>
@@ -72,11 +70,11 @@ export function ExportReport() {
         {/* export actions */}
         <div className="flex items-center gap-2">
           <div className="flex rounded-pill bg-white/10 p-1 text-[12px] font-medium">
-            <span className="rounded-pill bg-white px-3 py-1.5 text-navy">PDF</span>
-            <span className="px-3 py-1.5 text-white/70">Word</span>
+            <span className="rounded-pill bg-white px-3 py-1.5 text-navy">Comment sheet</span>
+            <span className="px-3 py-1.5 text-white/70">PDF</span>
           </div>
           <span className="ml-auto inline-flex items-center gap-1.5 rounded-pill bg-teal px-4 py-2 text-[12px] font-semibold text-navy">
-            <Download size={13} aria-hidden /> Export report
+            <Download size={13} aria-hidden /> Export
           </span>
         </div>
       </motion.div>

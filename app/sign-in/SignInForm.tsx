@@ -35,13 +35,13 @@ export function SignInForm() {
     }
     // Prototype: no auth backend yet. Go straight to the project overview.
     setBusy("email");
-    router.push("/dashboard");
+    router.push("/reviews");
   }
 
   function sso() {
     if (busy) return;
     setBusy("sso");
-    router.push("/dashboard");
+    router.push("/reviews");
   }
 
   return (

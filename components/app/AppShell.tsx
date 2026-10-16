@@ -2,23 +2,13 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import {
-  ChevronsUpDown,
-  Files,
-  FileText,
-  LayoutGrid,
-  ListChecks,
-  LogOut,
-  Menu,
-  Settings,
-  Users,
-  X,
-} from "lucide-react";
+import { Archive, Check, ChevronsUpDown, ListChecks, LogOut, Menu, Settings, Users, X } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import { Suspense, useEffect, useState, type ReactNode } from "react";
+import { useRouter } from "next/navigation";
+import { Suspense, useEffect, useRef, useState, type ReactNode } from "react";
 import { Avatar } from "@/components/app/ui";
 import { useApp } from "@/components/app/AppContext";
-import { SAMPLE_PROJECT, documents, members } from "@/lib/data";
+import { ME, findPerson } from "@/lib/data";
 import { Badge, Logo } from "@/components/ui/Logo";
 
 function NavLink({
@@ -59,50 +49,105 @@ function NavLink({
  * so the rest of the shell still prerenders on dynamic routes like /reviews/[id].
  * The fallback renders the same links without the active highlight.
  */
-const me = members[0];
+const me = findPerson(ME)!;
+
+/** The project name at the top of the sidebar; opens a list of the engineer's projects. */
+function ProjectSwitcher({ onNavigate }: { onNavigate?: () => void }) {
+  const router = useRouter();
+  const { project, projects, switchProject } = useApp();
+  const [open, setOpen] = useState(false);
+  const root = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: PointerEvent) => !root.current?.contains(e.target as Node) && setOpen(false);
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
+    document.addEventListener("pointerdown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("pointerdown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  return (
+    <div ref={root} className="relative -mt-1">
+      <button
+        type="button"
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        onClick={() => setOpen((o) => !o)}
+        className="flex w-full items-center justify-between gap-2 rounded-[8px] px-2.5 py-1.5 text-left transition-colors hover:bg-navy/[0.04]"
+      >
+        <span className="min-w-0">
+          <span className="block text-[12px] text-fg-subtle">Project{project.operator && `, ${project.operator}`}</span>
+          <span className="block truncate text-[14px] font-semibold">{project.name}</span>
+        </span>
+        <ChevronsUpDown size={14} className="shrink-0 text-fg-subtle" />
+      </button>
+      {open && (
+        <ul
+          role="listbox"
+          aria-label="Projects"
+          className="absolute inset-x-0 top-full z-20 mt-1 rounded-[10px] bg-white p-1 shadow-[0_12px_32px_-12px_rgba(14,42,71,.35)] ring-1 ring-edge"
+        >
+          {projects.map((p) => {
+            const on = p.id === project.id;
+            return (
+              <li key={p.id}>
+                <button
+                  type="button"
+                  role="option"
+                  aria-selected={on}
+                  onClick={() => {
+                    setOpen(false);
+                    if (on) return;
+                    switchProject(p.id);
+                    onNavigate?.();
+                    router.push("/reviews");
+                  }}
+                  className="flex w-full items-center gap-2.5 rounded-[7px] px-2.5 py-2 text-left transition-colors hover:bg-mist"
+                >
+                  <span className="min-w-0 flex-1">
+                    <span className={`block truncate text-[13.5px] ${on ? "font-medium" : ""}`}>{p.name}</span>
+                    <span className="block truncate text-[12px] text-fg-subtle">{p.operator ?? "No operator set"}</span>
+                  </span>
+                  {on && <Check size={14} strokeWidth={2.5} className="shrink-0 text-teal-dark" aria-hidden />}
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </div>
+  );
+}
 
 function Sidebar({ pathname = "", onNavigate, brand }: { pathname?: string; onNavigate?: () => void; brand?: boolean }) {
   const { reviews } = useApp();
   const is = (p: string) => pathname === p || pathname.startsWith(p + "/");
+  const archived = reviews.filter((r) => r.status === "Archived").length;
 
   return (
     <nav aria-label="Project" className="flex h-full flex-col gap-7 px-3 pt-5 pb-3">
       {brand && (
         <div className="px-2.5 pt-1">
-          <Logo width={108} href="/dashboard" />
+          <Logo width={108} href="/reviews" />
         </div>
       )}
 
-      <button
-        type="button"
-        className="-mt-1 flex items-center justify-between gap-2 rounded-[8px] px-2.5 py-1.5 text-left transition-colors hover:bg-navy/[0.04]"
-      >
-        <span className="min-w-0">
-          <span className="block text-[12px] text-fg-subtle">Project</span>
-          <span className="block truncate text-[14px] font-semibold">{SAMPLE_PROJECT}</span>
-        </span>
-        <ChevronsUpDown size={14} className="shrink-0 text-fg-subtle" />
-      </button>
+      <ProjectSwitcher onNavigate={onNavigate} />
 
       <div className="flex flex-col gap-0.5">
-        <NavLink href="/dashboard" icon={LayoutGrid} label="Overview" active={is("/dashboard")} onNavigate={onNavigate} />
         <NavLink
           href="/reviews"
           icon={ListChecks}
           label="Reviews"
-          count={reviews.length}
+          count={reviews.length - archived}
           active={is("/reviews")}
           onNavigate={onNavigate}
         />
-        <NavLink
-          href="/documents"
-          icon={Files}
-          label="Documents"
-          count={documents.length}
-          active={is("/documents")}
-          onNavigate={onNavigate}
-        />
-        <NavLink href="/reports" icon={FileText} label="Reports" active={is("/reports")} onNavigate={onNavigate} />
+        <NavLink href="/archive" icon={Archive} label="Archive" count={archived} active={is("/archive")} onNavigate={onNavigate} />
       </div>
 
       <div>
@@ -149,6 +194,7 @@ function SidebarWithPath({ onNavigate, brand }: { onNavigate?: () => void; brand
 }
 
 export function AppShell({ children }: { children: ReactNode }) {
+  const { project } = useApp();
   const [menuOpen, setMenuOpen] = useState(false);
 
   useEffect(() => {
@@ -169,9 +215,9 @@ export function AppShell({ children }: { children: ReactNode }) {
       <div className="flex min-w-0 flex-1 flex-col">
         {/* Top bar (phones and tablets) */}
         <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b border-hairline bg-white px-4 lg:hidden print:hidden">
-          <Link href="/dashboard" className="flex items-center gap-2.5">
+          <Link href="/reviews" className="flex min-w-0 items-center gap-2.5">
             <Badge size={28} />
-            <span className="text-[14px] font-semibold">{SAMPLE_PROJECT}</span>
+            <span className="truncate text-[14px] font-semibold">{project.name}</span>
           </Link>
           <button
             type="button"

@@ -1,15 +1,16 @@
 "use client";
 
 import {
+  Archive,
   Check,
   ChevronDown,
   CircleCheck,
   Download,
+  FileSpreadsheet,
   FileText,
-  Files,
   FolderKanban,
-  LayoutGrid,
   ListChecks,
+  MessageSquareText,
   MoreHorizontal,
   Search,
   Settings,
@@ -31,9 +32,9 @@ export type View = "findings" | "setup" | "report";
  * Elements the cursor aims at carry data-demo="<key>" so it can find them wherever they are.
  */
 export type Demo = {
-  filter: number; // findings: 0 All, 1 Non-compliant, 2 Missing, 3 Met
+  filter: number; // findings: 0 All, 1 Non-compliant, 2 Missing, 3 Compliant
   drawer: boolean; // findings: detail panel open
-  status: "Open" | "In review"; // findings: first finding
+  comment: boolean; // findings: comment added to the first finding
   picked: string[]; // setup: ticked components
   setupStep: number; // setup: wizard step
   exporting: boolean; // report
@@ -43,7 +44,7 @@ export type Demo = {
 export const DEMO_START: Demo = {
   filter: 0,
   drawer: false,
-  status: "Open",
+  comment: false,
   picked: [],
   setupStep: 1,
   exporting: false,
@@ -54,7 +55,7 @@ export const DEMO_START: Demo = {
 export const DEMO_END: Demo = {
   filter: 1,
   drawer: true,
-  status: "In review",
+  comment: true,
   picked: ["Static", "Armoured", "Steel tubes", "Electrical cables (LV)"],
   setupStep: 1,
   exporting: false,
@@ -87,7 +88,7 @@ function NavItem({ icon: Icon, label, count, active }: { icon: LucideIcon; label
   );
 }
 
-function Sidebar({ view }: { view: View }) {
+function Sidebar() {
   return (
     <aside className="flex w-[228px] shrink-0 flex-col gap-5 rounded-[12px] bg-white px-3 py-4 ring-1 ring-navy/[0.06]">
       <div className="flex items-center justify-between px-2">
@@ -95,10 +96,8 @@ function Sidebar({ view }: { view: View }) {
         <ChevronDown size={14} className="text-navy/40" />
       </div>
       <div className="flex flex-col gap-0.5">
-        <NavItem icon={LayoutGrid} label="Overview" />
-        <NavItem icon={ListChecks} label="Reviews" count={3} active={view !== "report"} />
-        <NavItem icon={Files} label="Documents" count={12} />
-        <NavItem icon={FileText} label="Reports" active={view === "report"} />
+        <NavItem icon={ListChecks} label="Reviews" count={3} active />
+        <NavItem icon={Archive} label="Archive" count={12} />
       </div>
       <div>
         <p className="px-2.5 pb-1.5 text-[11px] text-navy/45">Standards</p>
@@ -135,11 +134,10 @@ function Header({ title, crumb, actions }: { title: string; crumb: string; actio
 
 /* ------------------------------------------------------------------ views */
 
-const sevDot: Record<string, string> = {
-  High: "bg-high-fg",
-  Medium: "bg-[#D97706]",
-  Missing: "bg-[#E8A33D]",
-  Met: "bg-teal",
+const kindDot = {
+  "non-compliant": "bg-high-fg",
+  missing: "bg-missing",
+  compliant: "bg-teal",
 };
 
 const people = {
@@ -154,52 +152,32 @@ function Avatar({ who }: { who: keyof typeof people }) {
   );
 }
 
-type Row = { sev: string; title: string; detail?: string; ref: string; where: string; who: keyof typeof people | null; state: string };
+const COMMENT = "Supplier to re-run the installation analysis or justify the higher utilisation.";
+
+type Row = { kind: keyof typeof kindDot; title: string; detail?: string; ref: string; where: string };
 
 const ROWS: Row[] = [
-  ...nonCompliant.map((f, i) => ({
-    sev: f.severity as string,
-    title: f.title,
-    detail: f.detail,
-    ref: `${f.standard} ${f.clause}`,
-    where: f.location,
-    who: (["AB", "JK", "AB"] as const)[i],
-    state: "Open",
-  })),
-  ...missingInfo.slice(0, 2).map((f, i) => ({
-    sev: "Missing",
-    title: f.title,
-    ref: `${f.standard} ${f.clause}`,
-    where: f.expected,
-    who: (["RM", "JK"] as const)[i],
-    state: "Open",
-  })),
-  ...compliantChecks.slice(0, 2).map((f) => ({
-    sev: "Met",
-    title: f.title,
-    ref: `${f.standard} ${f.clause}`,
-    where: f.location,
-    who: null,
-    state: "Met",
-  })),
+  ...nonCompliant.map((f) => ({ kind: "non-compliant" as const, title: f.title, detail: f.detail, ref: `${f.standard} ${f.clause}`, where: f.location })),
+  ...missingInfo.slice(0, 2).map((f) => ({ kind: "missing" as const, title: f.title, ref: `${f.standard} ${f.clause}`, where: f.expected })),
+  ...compliantChecks.slice(0, 2).map((f) => ({ kind: "compliant" as const, title: f.title, ref: `${f.standard} ${f.clause}`, where: f.location })),
 ];
 
 const FILTER_TEST = [
   () => true,
-  (r: Row) => r.sev === "High" || r.sev === "Medium",
-  (r: Row) => r.sev === "Missing",
-  (r: Row) => r.sev === "Met",
+  (r: Row) => r.kind === "non-compliant",
+  (r: Row) => r.kind === "missing",
+  (r: Row) => r.kind === "compliant",
 ];
 
 function FindingsView({ demo }: { demo: Demo }) {
-  const first = { ...ROWS[0], state: demo.status };
-  const rows = [first, ...ROWS.slice(1)].filter(FILTER_TEST[demo.filter]);
+  const first = ROWS[0];
+  const rows = ROWS.filter(FILTER_TEST[demo.filter]);
 
   const filters = [
     ["All", nonCompliant.length + missingInfo.length + COMPLIANT_TOTAL],
     ["Non-compliant", nonCompliant.length],
     ["Missing", missingInfo.length],
-    ["Met", COMPLIANT_TOTAL],
+    ["Compliant", COMPLIANT_TOTAL],
   ] as const;
 
   return (
@@ -210,9 +188,11 @@ function FindingsView({ demo }: { demo: Demo }) {
         actions={
           <div className="flex gap-2">
             <span className="flex items-center gap-1.5 rounded-[8px] px-3 py-1.5 text-[12px] font-medium ring-1 ring-line">
-              <Download size={13} /> Export
+              <FileSpreadsheet size={13} /> Comment sheet
             </span>
-            <span className="rounded-[8px] bg-navy px-3 py-1.5 text-[12px] font-medium text-white">Share with team</span>
+            <span className="flex items-center gap-1.5 rounded-[8px] bg-navy px-3 py-1.5 text-[12px] font-medium text-white">
+              <Archive size={13} /> Finish and archive
+            </span>
           </div>
         }
       />
@@ -236,12 +216,11 @@ function FindingsView({ demo }: { demo: Demo }) {
       </div>
 
       <div className="mx-6 mt-4 overflow-hidden rounded-[10px] ring-1 ring-hairline">
-        <div className="grid grid-cols-[28px_minmax(0,2.4fr)_minmax(0,1fr)_minmax(0,1.3fr)_minmax(0,0.9fr)_28px] items-center gap-3 bg-mist/70 px-4 py-2.5 text-[11px] font-medium text-navy/55">
-          <span className="size-3.5 rounded-[4px] ring-1 ring-navy/25" />
+        <div className="grid grid-cols-[minmax(0,2.4fr)_minmax(0,1fr)_minmax(0,1.3fr)_minmax(0,0.8fr)_28px] items-center gap-3 bg-mist/70 px-4 py-2.5 text-[11px] font-medium text-navy/55">
           <span>Finding</span>
           <span>Clause</span>
           <span>Location</span>
-          <span>Status</span>
+          <span>Comment</span>
           <Settings size={13} className="justify-self-end text-navy/35" />
         </div>
         <AnimatePresence initial={false}>
@@ -256,20 +235,26 @@ function FindingsView({ demo }: { demo: Demo }) {
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.25 }}
                 data-demo={i === 0 ? "row-0" : undefined}
-                className={`grid grid-cols-[28px_minmax(0,2.4fr)_minmax(0,1fr)_minmax(0,1.3fr)_minmax(0,0.9fr)_28px] items-center gap-3 border-t border-hairline px-4 py-[11px] text-[12px] transition-colors ${
+                className={`grid grid-cols-[minmax(0,2.4fr)_minmax(0,1fr)_minmax(0,1.3fr)_minmax(0,0.8fr)_28px] items-center gap-3 border-t border-hairline px-4 py-[11px] text-[12px] transition-colors ${
                   selected ? "bg-teal-tint/50" : ""
-                } ${r.state === "Met" ? "text-navy/55" : ""}`}
+                } ${r.kind === "compliant" ? "text-navy/55" : ""}`}
               >
-                <span className="size-3.5 rounded-[4px] ring-1 ring-navy/25" />
                 <span className="flex min-w-0 items-center gap-2.5">
-                  <span className={`size-2 shrink-0 rounded-full ${sevDot[r.sev]}`} />
-                  <span className={`truncate ${r.state === "Met" ? "" : "font-medium"}`}>{r.title}</span>
+                  <span className={`size-2 shrink-0 rounded-full ${kindDot[r.kind]}`} />
+                  <span className={`truncate ${r.kind === "compliant" ? "" : "font-medium"}`}>{r.title}</span>
                 </span>
                 <span className="truncate text-navy/60">{r.ref}</span>
                 <span className="truncate text-navy/60">{r.where}</span>
-                <span className="flex items-center gap-1.5">
-                  {r.who ? <Avatar who={r.who} /> : <CircleCheck size={15} className="text-teal-dark" />}
-                  <span className={r.state === "In review" ? "font-medium text-[#1D4ED8]" : "text-navy/60"}>{r.state}</span>
+                <span className="flex items-center gap-1.5 text-navy/60">
+                  {r.kind === "compliant" ? (
+                    <CircleCheck size={15} className="text-teal-dark" />
+                  ) : r.title === first.title && demo.comment ? (
+                    <>
+                      <MessageSquareText size={14} className="text-teal-dark" /> Added
+                    </>
+                  ) : (
+                    <span className="text-navy/40">None</span>
+                  )}
                 </span>
                 <MoreHorizontal size={15} className="justify-self-end text-navy/35" />
               </motion.div>
@@ -290,7 +275,7 @@ function FindingsView({ demo }: { demo: Demo }) {
           >
             <div className="flex items-center justify-between text-[12px]">
               <span className="flex items-center gap-2 font-medium text-high-fg">
-                <span className="size-2 rounded-full bg-high-fg" /> Non-compliant, high
+                <span className="size-2 rounded-full bg-high-fg" /> Non-compliant
               </span>
               <X size={14} className="text-navy/40" />
             </div>
@@ -301,24 +286,24 @@ function FindingsView({ demo }: { demo: Demo }) {
               <dd className="font-mono text-[11.5px]">{first.ref}</dd>
               <dt className="text-navy/45">Location</dt>
               <dd>{first.where}</dd>
-              <dt className="text-navy/45">Owner</dt>
-              <dd className="flex items-center gap-1.5">
-                <Avatar who="AB" /> Alex Bennett
-              </dd>
             </dl>
-            <div className="mt-5 flex items-center justify-between border-t border-hairline pt-4">
-              <span className="text-[12px] text-navy/55">
-                Status:{" "}
-                <span className={demo.status === "In review" ? "font-medium text-[#1D4ED8]" : "font-medium text-navy"}>{demo.status}</span>
-              </span>
+            <p className="mt-5 text-[12px] font-semibold">Comment for the comment sheet</p>
+            <p
+              className={`mt-1.5 min-h-[58px] rounded-[8px] px-3 py-2 text-[12px] leading-relaxed ring-1 transition-colors duration-200 ${
+                demo.comment ? "text-navy ring-teal" : "text-navy/35 ring-line"
+              }`}
+            >
+              {demo.comment ? COMMENT : "The correction or justification you want from the supplier."}
+            </p>
+            <div className="mt-4 flex items-center justify-end border-t border-hairline pt-4">
               <span
-                data-demo="mark-review"
+                data-demo="add-comment"
                 className={`flex items-center gap-1.5 rounded-[8px] px-3 py-1.5 text-[12px] font-medium transition-colors duration-200 ${
-                  demo.status === "In review" ? "bg-[#EEF3FF] text-[#1D4ED8]" : "bg-navy text-white"
+                  demo.comment ? "bg-met-bg text-teal-dark" : "bg-navy text-white"
                 }`}
               >
-                {demo.status === "In review" && <Check size={13} strokeWidth={2.5} />}
-                {demo.status === "In review" ? "In review" : "Mark in review"}
+                {demo.comment && <Check size={13} strokeWidth={2.5} />}
+                {demo.comment ? "Comment saved" : "Save comment"}
               </span>
             </div>
           </motion.aside>
@@ -429,23 +414,25 @@ function SetupView({ demo }: { demo: Demo }) {
 }
 
 const PAST_EXPORTS = [
-  ["Findings report, Rev B.docx", "Word", "Yesterday", "AB"],
-  ["Findings report, Rev A.pdf", "PDF", "3 weeks ago", "JK"],
+  ["Findings report, Rev B.pdf", "PDF", "Yesterday", "AB"],
+  ["Comment sheet, Rev A.csv", "CSV", "3 weeks ago", "JK"],
 ] as const;
 
 function ReportView({ demo }: { demo: Demo }) {
-  const exports = demo.exported ? ([["Findings report, Rev B.pdf", "PDF", "Just now", "AB"], ...PAST_EXPORTS] as const) : PAST_EXPORTS;
+  const exports = demo.exported ? ([["Comment sheet, Rev B.csv", "CSV", "Just now", "AB"], ...PAST_EXPORTS] as const) : PAST_EXPORTS;
   return (
     <>
       <Header
-        crumb={`Reports / ${SAMPLE_DOCUMENT}`}
-        title="Findings report"
+        crumb={`Reviews / ${SAMPLE_DOCUMENT}`}
+        title="Export findings"
         actions={
           <div className="flex gap-2">
-            <span className="rounded-[8px] px-3 py-1.5 text-[12px] font-medium ring-1 ring-line">Export Word</span>
+            <span className="flex items-center gap-1.5 rounded-[8px] px-3 py-1.5 text-[12px] font-medium ring-1 ring-line">
+              <Download size={13} /> PDF report
+            </span>
             <span
               data-demo="export-pdf"
-              className="flex min-w-[112px] items-center justify-center gap-1.5 rounded-[8px] bg-navy px-3 py-1.5 text-[12px] font-medium text-white"
+              className="flex min-w-[170px] items-center justify-center gap-1.5 rounded-[8px] bg-navy px-3 py-1.5 text-[12px] font-medium text-white"
             >
               {demo.exporting ? (
                 <>
@@ -457,7 +444,7 @@ function ReportView({ demo }: { demo: Demo }) {
                 </>
               ) : (
                 <>
-                  <Download size={13} /> Export PDF
+                  <FileSpreadsheet size={13} /> Export comment sheet
                 </>
               )}
             </span>
@@ -468,7 +455,7 @@ function ReportView({ demo }: { demo: Demo }) {
         <div className="grid grid-cols-3 gap-3">
           {[
             ["Non-compliant", nonCompliant.length, "text-high-fg", "Need correction or justification"],
-            ["Missing information", missingInfo.length, "text-medium-fg", "Required content not found"],
+            ["Missing information", missingInfo.length, "text-fg-muted", "Required content not found"],
             ["Compliant checks", COMPLIANT_TOTAL, "text-teal-dark", "Requirements met"],
           ].map(([l, v, c, d]) => (
             <div key={l as string} className="rounded-[10px] p-4 ring-1 ring-hairline">
@@ -492,9 +479,9 @@ function ReportView({ demo }: { demo: Demo }) {
                 className={`flex items-center gap-3 px-4 py-3 text-[12px] ${i ? "border-t border-hairline" : ""}`}
               >
                 <span
-                  className={`flex size-7 items-center justify-center rounded-[7px] ${kind === "PDF" ? "bg-high-bg text-high-fg" : "bg-[#E3ECF7] text-deep"}`}
+                  className={`flex size-7 items-center justify-center rounded-[7px] ${kind === "PDF" ? "bg-high-bg text-high-fg" : "bg-met-bg text-teal-dark"}`}
                 >
-                  <FileText size={14} />
+                  {kind === "PDF" ? <FileText size={14} /> : <FileSpreadsheet size={14} />}
                 </span>
                 <span className="flex-1 font-medium">{name}</span>
                 <span className="text-navy/50">{when}</span>
@@ -522,7 +509,7 @@ export function Dashboard({ view, demo = DEMO_END }: { view: View; demo?: Demo }
         <Badge size={28} />
         <span className="mt-2 flex flex-col gap-2">
           <RailIcon icon={FolderKanban} active />
-          <RailIcon icon={Files} />
+          <RailIcon icon={Archive} />
           <RailIcon icon={Users} />
         </span>
         <span className="mt-auto flex size-8 items-center justify-center rounded-full bg-deep text-[11px] font-semibold text-white">
@@ -530,7 +517,7 @@ export function Dashboard({ view, demo = DEMO_END }: { view: View; demo?: Demo }
         </span>
       </div>
 
-      <Sidebar view={view} />
+      <Sidebar />
 
       <main className="relative min-w-0 flex-1 overflow-hidden rounded-[12px] bg-white ring-1 ring-navy/[0.06]">
         {view === "findings" && <FindingsView demo={demo} />}

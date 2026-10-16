@@ -14,7 +14,7 @@ const tabs: { id: View; label: string; icon: LucideIcon; chip: string; describe:
     label: "Findings",
     icon: ListChecks,
     chip: "bg-teal text-navy",
-    describe: "The findings list, filtered to non-compliant items, with the first finding opened and marked as in review.",
+    describe: "The findings list, filtered to non-compliant items, with the first finding opened and a comment added for the comment sheet.",
   },
   {
     id: "setup",
@@ -25,10 +25,10 @@ const tabs: { id: View; label: string; icon: LucideIcon; chip: string; describe:
   },
   {
     id: "report",
-    label: "Report",
+    label: "Export",
     icon: FileText,
     chip: "bg-deep text-white",
-    describe: "The findings report, exported as a PDF and added to the list of exports.",
+    describe: "The findings exported as a comment sheet and added to the list of exports.",
   },
 ];
 
@@ -44,7 +44,7 @@ const SCRIPTS: Record<View, Step<Demo>[]> = {
   findings: [
     { target: "filter-1", apply: (d) => ({ ...d, filter: 1 }), hold: 900 },
     { target: "row-0", apply: (d) => ({ ...d, drawer: true }), hold: 1300 },
-    { target: "mark-review", apply: (d) => ({ ...d, status: "In review" }), hold: 2200 },
+    { target: "add-comment", apply: (d) => ({ ...d, comment: true }), hold: 2200 },
   ],
   setup: [
     { target: "opt-Static", apply: tick("Static"), hold: 450 },

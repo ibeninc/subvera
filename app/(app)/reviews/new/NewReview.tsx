@@ -7,8 +7,8 @@ import { useRef, useState, type DragEvent } from "react";
 import { toggle, useApp } from "@/components/app/AppContext";
 import { Group, OptionTile, Section, Select, WizardStepper } from "@/components/app/form";
 import { FileTile, PageIntro, gutter } from "@/components/app/kit";
-import { appButton, surface } from "@/components/app/ui";
-import { documentCategories, projectPhases, standards, umbilicalScope, wizardSteps } from "@/lib/data";
+import { appButton, docName, shortDate, surface } from "@/components/app/ui";
+import { documentCategories, findPerson, projectPhases, standardsFor, umbilicalScope, wizardSteps } from "@/lib/data";
 
 const headings = [
   {
@@ -27,22 +27,24 @@ const headings = [
 
 export function NewReview() {
   const router = useRouter();
-  const { draft, startReview } = useApp();
+  const { draft, startReview, findReviewOf } = useApp();
   const [step, setStep] = useState(0);
   const top = useRef<HTMLDivElement>(null);
+  // One review per revision: the findings would be the same, so a second one adds nothing.
+  const existing = draft.fileName ? findReviewOf(draft.fileName) : undefined;
 
   const canContinue = [
     Boolean(draft.category && draft.docType),
     Object.values(draft.scope).every((v) => v.length > 0),
     draft.phases.length > 0,
-    draft.standards.length > 0 && Boolean(draft.fileName),
+    draft.standards.length > 0 && Boolean(draft.fileName) && !existing,
   ][step];
 
   const missing = [
     "Pick a category and a type to continue.",
     "Pick at least one option in each group.",
     "Pick at least one phase to continue.",
-    !draft.fileName ? "Add the PDF to continue." : "Pick at least one standard.",
+    !draft.fileName ? "Add the PDF to continue." : existing ? "This revision has already been reviewed." : "Pick at least one standard.",
   ][step];
 
   function go(to: number) {
@@ -180,7 +182,9 @@ function ProjectStep() {
 }
 
 function UploadStep() {
-  const { draft, updateDraft } = useApp();
+  const { draft, updateDraft, project, findReviewOf } = useApp();
+  const available = standardsFor(project.operator);
+  const existing = draft.fileName ? findReviewOf(draft.fileName) : undefined;
   const input = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -203,26 +207,25 @@ function UploadStep() {
 
   return (
     <>
-      <Section title="Standards" subtitle="The review checks the document against each one you pick.">
-        <div className="grid gap-2 sm:grid-cols-3">
-          {standards.map((s) => (
+      <Section title="Standards" subtitle={`The review checks the document against each one you pick. ${project.name}'s defaults are already ticked.`}>
+        <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+          {available.map((s) => (
             <OptionTile
               key={s.id}
               label={s.id}
               description={s.desc}
+              badge={s.sample ? "Sample" : undefined}
               checked={draft.standards.includes(s.id)}
               onChange={() => updateDraft({ standards: toggle(draft.standards, s.id) })}
             />
           ))}
-          <OptionTile
-            label="Your internal specs"
-            badge="Add-on"
-            description="Check against your company\u2019s own requirements."
-            checked={false}
-            onChange={() => {}}
-            disabled
-          />
         </div>
+        <p className="mt-3 text-[13px] text-fg-subtle">
+          {project.operator ? `Showing industry standards and ${project.operator} specifications. ` : "Showing industry standards. "}
+          <Link href="/settings" className="font-medium text-navy underline-offset-4 hover:underline">
+            Change the project defaults
+          </Link>
+        </p>
       </Section>
 
       <Section title="File" subtitle="PDF only. Text-based PDFs give the best results.">
@@ -258,7 +261,7 @@ function UploadStep() {
             <FileTile tone="navy" />
             <div className="min-w-0 flex-1">
               <p className="truncate text-[14px] font-medium">{draft.fileName}</p>
-              <p className="mt-0.5 text-[13px] text-fg-subtle">Ready to review</p>
+              <p className="mt-0.5 text-[13px] text-fg-subtle">{existing ? "Already reviewed" : "Ready to review"}</p>
             </div>
             <button
               type="button"
@@ -270,7 +273,27 @@ function UploadStep() {
             </button>
           </div>
         )}
+
+        {existing && (
+          <div role="status" className="mt-3 rounded-[10px] border-l-2 border-missing bg-missing-bg px-4 py-3 text-[13.5px] leading-relaxed text-fg-muted">
+            <p>
+              <span className="font-medium text-navy">This revision has already been reviewed</span> by{" "}
+              {findPerson(existing.reviewedBy)?.name ?? existing.reviewedBy} on {shortDate(existing.createdAt) === "Today" ? "today" : shortDate(existing.createdAt)}. The requirements are fixed for the document
+              type, so a second review would give the same findings.
+            </p>
+            <p className="mt-2 flex flex-wrap gap-x-4 gap-y-1">
+              <Link
+                href={existing.status === "Archived" ? `/archive/${existing.id}` : `/reviews/${existing.id}`}
+                className="font-medium text-navy underline underline-offset-4"
+              >
+                Open {docName(existing.document)}
+              </Link>
+              <span>Reviewing a newer revision? Upload that file instead.</span>
+            </p>
+          </div>
+        )}
       </Section>
     </>
   );
 }
+

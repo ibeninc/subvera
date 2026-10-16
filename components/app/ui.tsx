@@ -1,21 +1,24 @@
 import { Check } from "lucide-react";
 import type { ReactNode } from "react";
-import { SAMPLE_TODAY, members, type FindingKind, type FindingStatus, type MemberId, type Severity } from "@/lib/data";
+import { SAMPLE_TODAY, counts, findPerson, type FindingKind, type MemberId, type Review } from "@/lib/data";
 
 /* Shared building blocks for the app screens, matching the hero dashboard. */
 
-export const avatarTone: Record<MemberId, string> = {
-  AB: "bg-[#DCE7F3] text-navy",
-  JK: "bg-[#E0F2EF] text-teal-dark",
-  RM: "bg-[#FBE9D7] text-[#92570B]",
-};
+const avatarTones = ["bg-[#DCE7F3] text-navy", "bg-[#E0F2EF] text-teal-dark", "bg-[#FBE9D7] text-[#92570B]", "bg-[#ECE7F6] text-[#5B3E96]", "bg-[#E7EEF0] text-[#2F5560]"];
+
+/** A steady tone per person, so the same engineer always gets the same colour. */
+function toneFor(id: MemberId) {
+  let h = 0;
+  for (const ch of id) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+  return avatarTones[h % avatarTones.length];
+}
 
 export function Avatar({ id, size = 22 }: { id: MemberId; size?: number }) {
-  const m = members.find((x) => x.id === id);
+  const m = findPerson(id);
   return (
     <span
       title={m?.name}
-      className={`inline-flex shrink-0 items-center justify-center rounded-full font-semibold ${avatarTone[id]}`}
+      className={`inline-flex shrink-0 items-center justify-center rounded-full font-semibold ${toneFor(id)}`}
       style={{ width: size, height: size, fontSize: Math.round(size * 0.43) }}
     >
       {id}
@@ -23,53 +26,76 @@ export function Avatar({ id, size = 22 }: { id: MemberId; size?: number }) {
   );
 }
 
-export function sevColor(kind: FindingKind, severity?: Severity) {
-  if (kind === "met") return "bg-teal";
+export function kindColor(kind: FindingKind) {
+  if (kind === "compliant") return "bg-teal";
   if (kind === "missing") return "bg-missing";
-  return severity === "High" ? "bg-high-fg" : "bg-medium";
+  return "bg-high-fg";
 }
 
-export function SevDot({ kind, severity }: { kind: FindingKind; severity?: Severity }) {
-  return <span className={`size-2 shrink-0 rounded-full ${sevColor(kind, severity)}`} aria-hidden />;
+export function KindDot({ kind }: { kind: FindingKind }) {
+  return <span className={`size-2 shrink-0 rounded-full ${kindColor(kind)}`} aria-hidden />;
 }
 
 /**
- * Severity icon in the style of signal bars: three bars for high, two for medium,
- * a dashed ring for missing information (it's a gap, not a level).
+ * One icon per result: a crossed circle for non-compliant, a dashed ring for missing
+ * information (it's a gap, not a failure), a check for compliant.
  */
-export function SeverityIcon({ kind, severity, className = "" }: { kind: FindingKind; severity?: Severity; className?: string }) {
-  if (kind === "met") return <Check size={14} strokeWidth={2.25} className={`text-teal-dark ${className}`} aria-hidden />;
+export function KindIcon({ kind, className = "" }: { kind: FindingKind; className?: string }) {
+  if (kind === "compliant") return <Check size={14} strokeWidth={2.25} className={`text-teal-dark ${className}`} aria-hidden />;
   if (kind === "missing")
     return (
       <svg viewBox="0 0 14 14" className={`size-3.5 text-missing ${className}`} aria-hidden>
         <circle cx="7" cy="7" r="5.25" fill="none" stroke="currentColor" strokeWidth="1.5" strokeDasharray="2.6 2" />
       </svg>
     );
-  const level = severity === "High" ? 3 : 2;
-  const tone = severity === "High" ? "text-high-fg" : "text-medium";
   return (
-    <svg viewBox="0 0 14 14" className={`size-3.5 ${tone} ${className}`} aria-hidden>
-      {[0, 1, 2].map((i) => (
-        <rect key={i} x={1 + i * 4.5} y={9 - i * 3.5} width="3" height={4 + i * 3.5} rx="1" fill="currentColor" opacity={i < level ? 1 : 0.2} />
-      ))}
+    <svg viewBox="0 0 14 14" className={`size-3.5 text-high-fg ${className}`} aria-hidden>
+      <circle cx="7" cy="7" r="6" fill="currentColor" />
+      <path d="M4.9 4.9l4.2 4.2M9.1 4.9l-4.2 4.2" stroke="white" strokeWidth="1.5" strokeLinecap="round" />
     </svg>
   );
 }
 
-/** Severity icon plus its word. Colour and shape back up the label, they never replace it. */
-export function SeverityText({ kind, severity }: { kind: FindingKind; severity?: Severity }) {
-  const [label, tone] =
-    kind === "met"
-      ? ["Met", "text-teal-dark"]
-      : kind === "missing"
-        ? ["Missing info", "text-fg-muted"]
-        : severity === "High"
-          ? ["High", "font-medium text-high-fg"]
-          : ["Medium", "text-medium-fg"];
+/** Result icon plus its word. Colour and shape back up the label, they never replace it. */
+export function KindText({ kind, short }: { kind: FindingKind; short?: boolean }) {
+  const tone = kind === "compliant" ? "text-teal-dark" : kind === "missing" ? "text-fg-muted" : "font-medium text-high-fg";
   return (
     <span className={`inline-flex items-center gap-2 ${tone}`}>
-      <SeverityIcon kind={kind} severity={severity} />
-      {label}
+      <KindIcon kind={kind} />
+      {short && kind === "missing" ? "Missing info" : kindLabel(kind)}
+    </span>
+  );
+}
+
+/** The three result counts as a proportional bar with icons under it. */
+export function ResultsSummary({ r }: { r: Pick<Review, "findings" | "compliantTotal"> }) {
+  const c = counts(r);
+  return (
+    <span className="flex flex-col gap-2">
+      <span className="flex h-1.5 max-w-[180px] gap-[2px] overflow-hidden rounded-full" aria-hidden>
+        {[
+          { n: c.nonCompliant, cls: "bg-high-fg" },
+          { n: c.missing, cls: "bg-missing" },
+          { n: c.compliant, cls: "bg-teal/60" },
+        ]
+          .filter((s) => s.n > 0)
+          .map((s, i) => (
+            <span key={i} className={`h-full min-w-1.5 rounded-full ${s.cls}`} style={{ flexGrow: s.n }} />
+          ))}
+      </span>
+      <span className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px] text-fg-subtle tabular-nums">
+        {c.nonCompliant > 0 && (
+          <span className="inline-flex items-center gap-1.5" title="Non-compliant">
+            <KindIcon kind="non-compliant" /> {c.nonCompliant}
+          </span>
+        )}
+        {c.missing > 0 && (
+          <span className="inline-flex items-center gap-1.5" title="Missing information">
+            <KindIcon kind="missing" /> {c.missing}
+          </span>
+        )}
+        <span>{c.compliant} compliant</span>
+      </span>
     </span>
   );
 }
@@ -85,13 +111,13 @@ export function ClauseRef({ standard, clause }: { standard: string; clause: stri
 }
 
 /** Avatar with a first name beside it. */
-export function Person({ id }: { id?: MemberId }) {
-  const m = members.find((x) => x.id === id);
-  if (!id || !m) return <span className="text-fg-subtle">Unassigned</span>;
+export function Person({ id, full }: { id?: MemberId; full?: boolean }) {
+  const m = findPerson(id);
+  if (!id || !m) return <span className="text-fg-subtle">Unknown</span>;
   return (
     <span className="inline-flex min-w-0 items-center gap-2">
       <Avatar id={id} size={22} />
-      <span className="truncate text-fg-muted">{m.name.split(" ")[0]}</span>
+      <span className="truncate text-fg-muted">{full ? m.name : m.name.split(" ")[0]}</span>
     </span>
   );
 }
@@ -127,21 +153,10 @@ export function docName(file: string) {
   return file.replace(/\.pdf$/i, "");
 }
 
-export function kindLabel(kind: FindingKind, severity?: Severity) {
-  if (kind === "met") return "Met";
+export function kindLabel(kind: FindingKind) {
+  if (kind === "compliant") return "Compliant";
   if (kind === "missing") return "Missing information";
-  return `Non-compliant, ${severity?.toLowerCase()}`;
-}
-
-const statusTone: Record<FindingStatus, string> = {
-  Open: "text-navy/65",
-  "In review": "text-[#1D4ED8]",
-  Resolved: "text-teal-dark",
-  Met: "text-teal-dark",
-};
-
-export function StatusText({ status }: { status: FindingStatus }) {
-  return <span className={statusTone[status]}>{status}</span>;
+  return "Non-compliant";
 }
 
 /** Page header inside the main panel. `meta` is a quiet line under the title. */
@@ -180,17 +195,6 @@ const appBtn = {
 
 export function appButton(variant: keyof typeof appBtn = "outline", className = "") {
   return `inline-flex items-center justify-center gap-1.5 rounded-[8px] px-3 py-1.5 text-[13px] leading-5 font-medium transition-colors duration-150 disabled:pointer-events-none disabled:opacity-40 ${appBtn[variant]} ${className}`;
-}
-
-export function Checkbox({ checked, label }: { checked: boolean; label?: string }) {
-  return (
-    <span
-      aria-hidden={!label}
-      className={`flex size-3.5 shrink-0 items-center justify-center rounded-[4px] ${checked ? "bg-navy text-white" : "ring-1 ring-navy/25"}`}
-    >
-      {checked && <Check size={10} strokeWidth={3} />}
-    </span>
-  );
 }
 
 /*

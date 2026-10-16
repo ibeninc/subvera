@@ -16,12 +16,12 @@ export function Section({ title, subtitle, children }: { title: string; subtitle
   );
 }
 
-export function Group({ title, hint, children }: { title: string; hint?: string; children: ReactNode }) {
+export function Group({ title, hint, columns = 3, children }: { title: string; hint?: string; columns?: 2 | 3; children: ReactNode }) {
   return (
     <fieldset className="border-t border-hairline pt-5 first:border-t-0 first:pt-0 [&+&]:mt-5">
       <legend className="float-left w-full text-[14px] font-medium">{title}</legend>
       {hint && <p className="clear-both mt-0.5 text-[13px] text-fg-subtle">{hint}</p>}
-      <div className="clear-both mt-3 grid gap-2.5 sm:grid-cols-2 xl:grid-cols-3">{children}</div>
+      <div className={`clear-both mt-3 grid gap-2.5 sm:grid-cols-2 ${columns === 3 ? "xl:grid-cols-3" : ""}`}>{children}</div>
     </fieldset>
   );
 }

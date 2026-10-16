@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { Logo } from "@/components/ui/Logo";
-import { ClauseRef, SeverityText } from "@/components/app/ui";
+import { ClauseRef, KindText } from "@/components/app/ui";
 import { Waterline } from "@/components/visuals/Waterline";
 import { SignInForm } from "./SignInForm";
 
@@ -38,7 +38,7 @@ function BrandPanel() {
         <div className="mx-auto w-full max-w-[400px]">
           <div className="rounded-[14px] bg-white px-5 py-4 text-navy shadow-[0_24px_48px_-24px_rgba(0,0,0,.5)]">
             <p className="text-[13px]">
-              <SeverityText kind="non-compliant" severity="High" />
+              <KindText kind="non-compliant" />
             </p>
             <p className="mt-2 text-[15.5px] leading-snug font-semibold">Tensile utilisation above the acceptance limit</p>
             <p className="mt-3">

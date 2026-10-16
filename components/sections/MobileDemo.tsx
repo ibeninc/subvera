@@ -1,13 +1,13 @@
 "use client";
 
-import { Check, ChevronRight, Download, FileText, ListChecks, LoaderCircle, SlidersHorizontal } from "lucide-react";
+import { Check, ChevronRight, FileSpreadsheet, FileText, ListChecks, LoaderCircle, MessageSquareText, SlidersHorizontal } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { AnimatePresence, motion, useInView, useReducedMotion } from "motion/react";
 import { useRef } from "react";
-import { Avatar, ClauseRef, SeverityText, StatusPill } from "@/components/app/ui";
+import { Avatar, ClauseRef, KindText } from "@/components/app/ui";
 import { DemoTouch, useDemoPlayer, usePageVisible, useTour, type Step } from "@/components/sections/demo";
 import { Badge } from "@/components/ui/Logo";
-import { COMPLIANT_TOTAL, SAMPLE_DOCUMENT, SAMPLE_PROJECT, compliantChecks, missingInfo, nonCompliant, projectPhases, type MemberId } from "@/lib/data";
+import { COMPLIANT_TOTAL, SAMPLE_DOCUMENT, SAMPLE_PROJECT, compliantChecks, missingInfo, nonCompliant, projectPhases, type FindingKind, type MemberId } from "@/lib/data";
 
 /*
  * The hero demo on phones and tablets. Same three stories as the desktop mock, rebuilt as a
@@ -18,9 +18,9 @@ import { COMPLIANT_TOTAL, SAMPLE_DOCUMENT, SAMPLE_PROJECT, compliantChecks, miss
 type View = "findings" | "setup" | "report";
 
 type M = {
-  filter: number; // 0 All, 1 Non-compliant, 2 Missing, 3 Met
+  filter: number; // 0 All, 1 Non-compliant, 2 Missing, 3 Compliant
   sheet: boolean;
-  status: "Open" | "In review";
+  comment: boolean; // comment added to the first finding
   picked: string[];
   step: number; // wizard step, 1-based
   exporting: boolean;
@@ -28,11 +28,11 @@ type M = {
   toast: string | null;
 };
 
-const START: M = { filter: 0, sheet: false, status: "Open", picked: [], step: 2, exporting: false, exported: false, toast: null };
+const START: M = { filter: 0, sheet: false, comment: false, picked: [], step: 2, exporting: false, exported: false, toast: null };
 const END: M = {
   filter: 1,
   sheet: true,
-  status: "In review",
+  comment: true,
   picked: ["Static", "Armoured", "Steel tubes", "Electrical cables (LV)"],
   step: 2,
   exporting: false,
@@ -46,7 +46,7 @@ const SCRIPTS: Record<View, Step<M>[]> = {
   findings: [
     { target: "chip-1", apply: (m) => ({ ...m, filter: 1 }), hold: 900 },
     { target: "item-0", apply: (m) => ({ ...m, sheet: true }), hold: 1400 },
-    { target: "sheet-action", apply: (m) => ({ ...m, status: "In review" }), hold: 2300 },
+    { target: "sheet-action", apply: (m) => ({ ...m, comment: true }), hold: 2300 },
   ],
   setup: [
     { target: "opt-Static", apply: tick("Static"), hold: 450 },
@@ -57,7 +57,7 @@ const SCRIPTS: Record<View, Step<M>[]> = {
   ],
   report: [
     { target: "export", apply: (m) => ({ ...m, exporting: true }), hold: 1300 },
-    { apply: (m) => ({ ...m, exporting: false, exported: true, toast: "PDF saved to Exports" }), hold: 1800 },
+    { apply: (m) => ({ ...m, exporting: false, exported: true, toast: "Comment sheet downloaded" }), hold: 1800 },
     { apply: (m) => ({ ...m, toast: null }), hold: 1200 },
   ],
 };
@@ -69,7 +69,7 @@ const TABS: { id: View; label: string; icon: LucideIcon; describe: string }[] = 
     id: "findings",
     label: "Findings",
     icon: ListChecks,
-    describe: "Findings on a phone: filtered to non-compliant items, with the first one opened and marked as in review.",
+    describe: "Findings on a phone: filtered to non-compliant items, with the first one opened and a comment added for the comment sheet.",
   },
   {
     id: "setup",
@@ -77,7 +77,7 @@ const TABS: { id: View; label: string; icon: LucideIcon; describe: string }[] = 
     icon: SlidersHorizontal,
     describe: "Review setup on a phone: picking the umbilical's type, construction and components brings 45 requirements into scope.",
   },
-  { id: "report", label: "Report", icon: FileText, describe: "The findings report on a phone, exported as a PDF and added to the exports." },
+  { id: "report", label: "Export", icon: FileText, describe: "The findings on a phone, exported as a comment sheet and added to the exports." },
 ];
 
 export function MobileDemo() {
@@ -176,35 +176,21 @@ function AppBar({ eyebrow, title }: { eyebrow: string; title: string }) {
   );
 }
 
-type Item = { kind: "non-compliant" | "missing" | "met"; severity?: "High" | "Medium"; title: string; detail?: string; standard: string; clause: string; where: string; who?: MemberId };
+type Item = { kind: FindingKind; title: string; detail?: string; standard: string; clause: string; where: string };
+
+const COMMENT = "Supplier to re-run the installation analysis or justify the higher utilisation.";
 
 const ITEMS: Item[] = [
-  ...nonCompliant.map((f, i) => ({
-    kind: "non-compliant" as const,
-    severity: f.severity,
-    title: f.title,
-    detail: f.detail,
-    standard: f.standard,
-    clause: f.clause,
-    where: f.location,
-    who: (["AB", "JK", "AB"] as const)[i],
-  })),
-  ...missingInfo.slice(0, 2).map((f, i) => ({
-    kind: "missing" as const,
-    title: f.title,
-    standard: f.standard,
-    clause: f.clause,
-    where: f.expected,
-    who: (["RM", "JK"] as const)[i],
-  })),
-  ...compliantChecks.slice(0, 2).map((f) => ({ kind: "met" as const, title: f.title, standard: f.standard, clause: f.clause, where: f.location })),
+  ...nonCompliant.map((f) => ({ kind: "non-compliant" as const, title: f.title, detail: f.detail, standard: f.standard, clause: f.clause, where: f.location })),
+  ...missingInfo.slice(0, 2).map((f) => ({ kind: "missing" as const, title: f.title, standard: f.standard, clause: f.clause, where: f.expected })),
+  ...compliantChecks.slice(0, 2).map((f) => ({ kind: "compliant" as const, title: f.title, standard: f.standard, clause: f.clause, where: f.location })),
 ];
 
 const CHIPS = [
   { label: "All", n: nonCompliant.length + missingInfo.length + COMPLIANT_TOTAL, test: () => true },
   { label: "Non-compliant", n: nonCompliant.length, test: (i: Item) => i.kind === "non-compliant" },
   { label: "Missing", n: missingInfo.length, test: (i: Item) => i.kind === "missing" },
-  { label: "Met", n: COMPLIANT_TOTAL, test: (i: Item) => i.kind === "met" },
+  { label: "Compliant", n: COMPLIANT_TOTAL, test: (i: Item) => i.kind === "compliant" },
 ];
 
 function FindingsScreen({ m }: { m: M }) {
@@ -243,14 +229,14 @@ function FindingsScreen({ m }: { m: M }) {
               className={`flex items-center gap-3 border-b border-hairline px-5 py-3.5 ${i === 0 && m.sheet ? "bg-teal-tint/50" : ""}`}
             >
               <div className="min-w-0 flex-1">
-                <p className={`text-[14.5px] leading-snug ${it.kind === "met" ? "text-fg-muted" : "font-medium"}`}>{it.title}</p>
+                <p className={`text-[14.5px] leading-snug ${it.kind === "compliant" ? "text-fg-muted" : "font-medium"}`}>{it.title}</p>
                 <p className="mt-1.5 flex items-center gap-2.5 text-[12.5px]">
-                  <SeverityText kind={it.kind} severity={it.severity} />
+                  <KindText kind={it.kind} short />
                   <ClauseRef standard={it.standard} clause={it.clause} />
                 </p>
               </div>
-              {i === 0 && it.title === first.title && m.status === "In review" ? (
-                <StatusPill tone="blue">In review</StatusPill>
+              {it.title === first.title && m.comment ? (
+                <MessageSquareText size={16} className="shrink-0 text-teal-dark" aria-label="Comment added" />
               ) : (
                 <ChevronRight size={16} className="shrink-0 text-fg-subtle" />
               )}
@@ -279,8 +265,7 @@ function FindingsScreen({ m }: { m: M }) {
             >
               <span className="mx-auto block h-1 w-10 rounded-full bg-navy/15" />
               <div className="mt-4 flex items-center justify-between text-[13px]">
-                <SeverityText kind={first.kind} severity={first.severity} />
-                {m.status === "In review" && <StatusPill tone="blue">In review</StatusPill>}
+                <KindText kind={first.kind} />
               </div>
               <p className="mt-2.5 text-[17px] leading-snug font-semibold">{first.title}</p>
               <p className="mt-2 text-[14px] leading-relaxed text-fg-muted">{first.detail}</p>
@@ -291,19 +276,17 @@ function FindingsScreen({ m }: { m: M }) {
                 </dd>
                 <dt className="text-fg-subtle">Location</dt>
                 <dd>{first.where}</dd>
-                <dt className="text-fg-subtle">Owner</dt>
-                <dd className="flex items-center gap-2">
-                  <Avatar id="AB" size={22} /> Alex Bennett
-                </dd>
+                <dt className="text-fg-subtle">Comment</dt>
+                <dd className={m.comment ? "" : "text-fg-subtle"}>{m.comment ? COMMENT : "None yet"}</dd>
               </dl>
               <span
                 data-demo="sheet-action"
                 className={`mt-5 flex h-12 items-center justify-center gap-2 rounded-[12px] text-[15px] font-medium transition-colors duration-200 ${
-                  m.status === "In review" ? "bg-[#EEF3FF] text-[#1D4ED8]" : "bg-navy text-white"
+                  m.comment ? "bg-met-bg text-teal-dark" : "bg-navy text-white"
                 }`}
               >
-                {m.status === "In review" && <Check size={16} strokeWidth={2.5} />}
-                {m.status === "In review" ? "Marked in review" : "Mark in review"}
+                {m.comment && <Check size={16} strokeWidth={2.5} />}
+                {m.comment ? "Comment saved" : "Add comment"}
               </span>
             </motion.div>
           </>
@@ -401,22 +384,22 @@ function SetupScreen({ m }: { m: M }) {
 }
 
 const PAST_EXPORTS: [string, string, MemberId][] = [
-  ["Findings report, Rev B.docx", "Yesterday", "AB"],
-  ["Findings report, Rev A.pdf", "3 weeks ago", "JK"],
+  ["Findings report, Rev B.pdf", "Yesterday", "AB"],
+  ["Comment sheet, Rev A.csv", "3 weeks ago", "JK"],
 ];
 
 function ReportScreen({ m }: { m: M }) {
-  const exports: [string, string, MemberId][] = m.exported ? [["Findings report, Rev B.pdf", "Just now", "AB"], ...PAST_EXPORTS] : PAST_EXPORTS;
+  const exports: [string, string, MemberId][] = m.exported ? [["Comment sheet, Rev B.csv", "Just now", "AB"], ...PAST_EXPORTS] : PAST_EXPORTS;
   return (
     <div className="relative flex h-full flex-col">
-      <AppBar eyebrow={SAMPLE_DOCUMENT.replace(/\.pdf$/i, "")} title="Findings report" />
+      <AppBar eyebrow={SAMPLE_DOCUMENT.replace(/\.pdf$/i, "")} title="Export findings" />
 
       <div className="mt-5 flex-1 overflow-hidden px-5">
         <dl className="grid grid-cols-3 divide-x divide-hairline rounded-[14px] bg-mist/70 py-3.5 ring-1 ring-edge">
           {[
             ["Non-compliant", nonCompliant.length],
             ["Missing", missingInfo.length],
-            ["Met", COMPLIANT_TOTAL],
+            ["Compliant", COMPLIANT_TOTAL],
           ].map(([l, v]) => (
             <div key={l} className="flex flex-col-reverse items-center">
               <dt className="mt-1 text-[12px] text-fg-muted">{l}</dt>
@@ -439,10 +422,10 @@ function ReportScreen({ m }: { m: M }) {
               >
                 <span
                   className={`flex h-9 w-8 shrink-0 items-end justify-center rounded-[6px] pb-1 font-mono text-[9px] font-medium ring-1 ${
-                    name.endsWith(".pdf") ? "bg-high-bg text-high-fg ring-high-fg/15" : "bg-[#E8EFF8] text-deep ring-deep/15"
+                    name.endsWith(".pdf") ? "bg-high-bg text-high-fg ring-high-fg/15" : "bg-met-bg text-teal-dark ring-teal-dark/15"
                   }`}
                 >
-                  {name.endsWith(".pdf") ? "PDF" : "DOC"}
+                  {name.endsWith(".pdf") ? "PDF" : "CSV"}
                 </span>
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-[14px] font-medium">{name.replace(/^Findings report, /, "")}</span>
@@ -483,7 +466,7 @@ function ReportScreen({ m }: { m: M }) {
         >
           {m.exporting ? (
             <>
-              <LoaderCircle size={16} className="animate-spin" /> Exporting PDF
+              <LoaderCircle size={16} className="animate-spin" /> Exporting
             </>
           ) : m.exported ? (
             <>
@@ -491,7 +474,7 @@ function ReportScreen({ m }: { m: M }) {
             </>
           ) : (
             <>
-              <Download size={16} /> Export PDF
+              <FileSpreadsheet size={16} /> Export comment sheet
             </>
           )}
         </span>

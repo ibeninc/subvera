@@ -1,14 +1,8 @@
 import type { Metadata } from "next";
-import { Suspense } from "react";
-import { Reports } from "./Reports";
+import { ArchiveList } from "./ArchiveList";
 
-export const metadata: Metadata = { title: "Reports" };
+export const metadata: Metadata = { title: "Archive" };
 
 export default function Page() {
-  // Reports reads ?review= from the URL, so it renders inside a Suspense boundary.
-  return (
-    <Suspense>
-      <Reports />
-    </Suspense>
-  );
+  return <ArchiveList />;
 }

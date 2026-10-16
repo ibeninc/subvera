@@ -2,11 +2,13 @@
 
 import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import { Check, CircleCheck, Download, LoaderCircle, Search, Share2, X } from "lucide-react";
+import { Archive, Check, Download, FileSpreadsheet, LoaderCircle, MessageSquareText, RotateCcw, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useApp } from "@/components/app/AppContext";
-import { Avatar, Card, Checkbox, PageHeader, SevDot, StatusText, appButton, kindLabel } from "@/components/app/ui";
-import { counts, members, progressSteps, type Finding, type FindingStatus, type MemberId, type Review } from "@/lib/data";
+import { Dialog, EmptyState, FilterTabs, PageBody, PageIntro, SearchField, SectionTitle } from "@/components/app/kit";
+import { ReportPaper, useReportActions } from "@/components/app/report";
+import { Card, ClauseRef, KindDot, KindText, PageHeader, Person, appButton, docName, kindLabel, shortDate, surface } from "@/components/app/ui";
+import { counts, findPerson, isExported, progressSteps, type Finding, type FindingKind, type Review } from "@/lib/data";
 import { Badge } from "@/components/ui/Logo";
 
 export function Findings() {
@@ -43,6 +45,7 @@ function Progress({ review }: { review: Review }) {
   const { completeReview, cancelReview, toast } = useApp();
   const [pct, setPct] = useState(0);
   const [startedAt] = useState(() => Date.now());
+  const steps = progressSteps(review.standards);
 
   useEffect(() => {
     if (pct >= 100) {
@@ -54,8 +57,8 @@ function Progress({ review }: { review: Review }) {
     return () => clearTimeout(t);
   }, [pct, startedAt, review.id, completeReview, toast]);
 
-  const per = 100 / progressSteps.length;
-  const activeIndex = Math.min(progressSteps.length, Math.floor(pct / per));
+  const per = 100 / steps.length;
+  const activeIndex = Math.min(steps.length, Math.floor(pct / per));
 
   return (
     <>
@@ -64,7 +67,7 @@ function Progress({ review }: { review: Review }) {
         <Badge size={52} />
         <h2 className="mt-5 font-sans text-[22px] font-semibold tracking-normal">Checking your document</h2>
         <p className="mt-1 text-[13px] text-navy/60">
-          {review.document}, {review.standards.join(" and ")}
+          {review.document}, {review.standards.join(", ")}
         </p>
 
         <div className="mt-8 w-full text-left">
@@ -85,7 +88,7 @@ function Progress({ review }: { review: Review }) {
           </div>
 
           <ol className="mt-5 overflow-hidden rounded-[10px] ring-1 ring-hairline">
-            {progressSteps.map((s, i) => {
+            {steps.map((s, i) => {
               const done = i < activeIndex;
               const active = i === activeIndex;
               return (
@@ -136,219 +139,321 @@ function Progress({ review }: { review: Review }) {
 
 /* ------------------------------------------------------------ results */
 
-type Filter = "all" | "non-compliant" | "missing" | "met";
+type Filter = "all" | FindingKind;
 
 function Results({ review }: { review: Review }) {
-  const { toast, updateFinding } = useApp();
+  const router = useRouter();
+  const { project, archiveReview, reopenReview, toast } = useApp();
+  const actions = useReportActions(review);
   const params = useSearchParams();
   const c = counts(review);
+  const archived = review.status === "Archived";
+  const exported = isExported(review);
 
   const [filter, setFilter] = useState<Filter>("all");
   const [q, setQ] = useState("");
-  const [selected, setSelected] = useState<string[]>([]);
   const [openId, setOpenId] = useState<string | null>(params.get("finding"));
+  const [confirmArchive, setConfirmArchive] = useState(false);
 
   const visible = useMemo(() => {
     const term = q.trim().toLowerCase();
     return review.findings.filter(
       (f) =>
         (filter === "all" || f.kind === filter) &&
-        (!term || `${f.title} ${f.standard} ${f.clause} ${f.location}`.toLowerCase().includes(term)),
+        (!term || `${f.title} ${f.standard} ${f.clause} ${f.location} ${f.comment ?? ""}`.toLowerCase().includes(term)),
     );
   }, [review.findings, filter, q]);
 
   const open = review.findings.find((f) => f.id === openId) ?? null;
-  const actionable = visible.filter((f) => f.kind !== "met");
-  const allSelected = actionable.length > 0 && actionable.every((f) => selected.includes(f.id));
+  const listedCompliant = review.findings.filter((f) => f.kind === "compliant").length;
 
-  const filters: [Filter, string, number][] = [
-    ["all", "All", c.nonCompliant + c.missing + c.met],
-    ["non-compliant", "Non-compliant", c.nonCompliant],
-    ["missing", "Missing", c.missing],
-    ["met", "Met", c.met],
+  function archive() {
+    setConfirmArchive(false);
+    archiveReview(review.id);
+    toast("Review archived");
+    router.push(`/archive/${review.id}`);
+  }
+
+  const filters: { key: Filter; label: string; count: number }[] = [
+    { key: "all", label: "All", count: c.nonCompliant + c.missing + c.compliant },
+    { key: "non-compliant", label: "Non-compliant", count: c.nonCompliant },
+    { key: "missing", label: "Missing information", count: c.missing },
+    { key: "compliant", label: "Compliant", count: c.compliant },
   ];
-
-  function share() {
-    navigator.clipboard?.writeText(window.location.href).catch(() => {});
-    toast("Link copied");
-  }
-
-  function bulk(status: FindingStatus) {
-    selected.forEach((id) => updateFinding(review.id, id, { status }));
-    toast(`${selected.length} ${selected.length === 1 ? "finding" : "findings"} marked ${status.toLowerCase()}`);
-    setSelected([]);
-  }
 
   return (
     <>
-      <PageHeader
-        crumb={
-          <>
-            <Link href="/reviews" className="hover:text-navy">
-              Reviews
-            </Link>{" "}
-            / {review.document}
-          </>
-        }
-        title="Findings"
-        actions={
-          <>
-            <button type="button" onClick={share} className={appButton("outline")}>
-              <Share2 size={13} /> Share
-            </button>
-            <Link href={`/reports?review=${review.id}`} className={appButton("primary")}>
-              <Download size={13} /> Export report
-            </Link>
-          </>
-        }
-      />
+      <div className="print:hidden">
+        <PageIntro
+          eyebrow={
+            <>
+              <Link href={archived ? "/archive" : "/reviews"} className="underline-offset-4 hover:text-navy hover:underline">
+                {archived ? "Archive" : "Reviews"}
+              </Link>
+              <span aria-hidden> / </span>Findings
+            </>
+          }
+          title={docName(review.document)}
+          summary={`${review.docType}, checked against ${review.standards.join(", ")}. Illustrative sample data.`}
+          actions={
+            archived ? (
+              <>
+                <Link href={`/archive/${review.id}`} className={appButton("outline", "h-9 px-3.5")}>
+                  Open in archive
+                </Link>
+                <button
+                  type="button"
+                  onClick={() => {
+                    reopenReview(review.id);
+                    toast("Review reopened");
+                  }}
+                  className={appButton("primary", "h-9 px-3.5")}
+                >
+                  <RotateCcw size={14} /> Reopen review
+                </button>
+              </>
+            ) : (
+              <>
+                <button type="button" onClick={actions.pdf} className={appButton("outline", "h-9 px-3.5")}>
+                  <Download size={14} /> PDF report
+                </button>
+                <button type="button" onClick={actions.commentSheet} className={appButton("outline", "h-9 px-3.5")}>
+                  <FileSpreadsheet size={14} /> Comment sheet
+                </button>
+                <button type="button" onClick={() => setConfirmArchive(true)} className={appButton("primary", "h-9 px-3.5")}>
+                  <Archive size={14} /> Finish and archive
+                </button>
+              </>
+            )
+          }
+        />
 
-      <div className="flex flex-col gap-4 p-6 max-md:p-4">
-        <p className="text-[12.5px] text-navy/55">
-          {review.docType}, checked against {review.standards.join(" and ")}. Illustrative sample data.
-        </p>
+        <PageBody>
+          <div className="flex flex-col gap-5">
+            {archived && (
+              <p className="rounded-[10px] border-l-2 border-teal bg-teal-tint/40 px-4 py-3 text-[13.5px] leading-relaxed text-fg-muted">
+                Archived on {review.archivedAt}. The report is read-only. Reopen the review to change comments or the reviewer.
+              </p>
+            )}
 
-        <div className="grid grid-cols-3 gap-2 sm:gap-3">
-          {[
-            ["Non-compliant", c.nonCompliant, "text-high-fg", "Need correction or justification"],
-            ["Missing information", c.missing, "text-medium-fg", "Required content not found"],
-            ["Compliant checks", c.met, "text-teal-dark", "Requirements met in the document"],
-          ].map(([l, v, tone, d]) => (
-            <Card key={l as string} className="p-4 max-sm:p-3">
-              <p className={`text-[12px] font-medium max-sm:text-[11px] max-sm:leading-tight ${tone}`}>{l}</p>
-              <p className="mt-2 font-display text-[28px] leading-none font-semibold max-sm:text-[24px]">{v}</p>
-              <p className="mt-1.5 text-[11.5px] text-navy/45 max-sm:hidden">{d}</p>
-            </Card>
-          ))}
-        </div>
+            <ReviewDetails review={review} exported={exported} readOnly={archived} />
 
-        <p className="rounded-[10px] bg-mist px-4 py-3 text-[12.5px] leading-[1.55] text-navy/70">
-          This summary supports your review. It does not confirm compliance. Check each finding against the source document. The
-          responsible engineer keeps final approval.
-        </p>
-
-        {/* toolbar */}
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <label className="flex w-full max-w-[280px] items-center gap-2 rounded-[8px] px-3 py-2 text-[12.5px] ring-1 ring-line focus-within:ring-2 focus-within:ring-teal">
-            <Search size={14} className="text-navy/40" />
-            <input
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              placeholder="Search findings or clauses"
-              className="w-full bg-transparent outline-none placeholder:text-navy/40"
-            />
-          </label>
-          <div role="tablist" aria-label="Filter findings" className="flex gap-1 overflow-x-auto rounded-[9px] bg-mist p-1 text-[12px]">
-            {filters.map(([key, label, n]) => (
-              <button
-                key={key}
-                role="tab"
-                aria-selected={filter === key}
-                onClick={() => setFilter(key)}
-                className={`rounded-[6px] px-2.5 py-1 whitespace-nowrap transition-colors ${
-                  filter === key ? "bg-white font-medium text-navy shadow-[0_1px_2px_rgba(14,42,71,.1)]" : "text-navy/55 hover:text-navy"
-                }`}
-              >
-                {label} <span className="text-navy/40 tabular-nums">{n}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {selected.length > 0 && (
-          <div className="flex flex-wrap items-center gap-3 rounded-[10px] bg-navy px-4 py-2.5 text-[12.5px] text-white">
-            <span className="font-medium">{selected.length} selected</span>
-            <span className="h-4 w-px bg-white/20" />
-            <button type="button" onClick={() => bulk("In review")} className="text-white/80 hover:text-white">
-              Mark in review
-            </button>
-            <button type="button" onClick={() => bulk("Resolved")} className="text-white/80 hover:text-white">
-              Mark resolved
-            </button>
-            <button type="button" onClick={() => setSelected([])} className="ml-auto text-white/60 hover:text-white">
-              Clear
-            </button>
-          </div>
-        )}
-
-        {/* table */}
-        <div className="overflow-x-auto rounded-[10px] ring-1 ring-hairline">
-          <div className="min-w-[760px]">
-            <div className="grid grid-cols-[28px_minmax(0,2.4fr)_minmax(0,1fr)_minmax(0,1.4fr)_minmax(0,1fr)] items-center gap-3 bg-mist/70 px-4 py-2.5 text-[11.5px] font-medium text-navy/55">
-              <button
-                type="button"
-                aria-label={allSelected ? "Clear selection" : "Select all open findings"}
-                onClick={() => setSelected(allSelected ? [] : actionable.map((f) => f.id))}
-              >
-                <Checkbox checked={allSelected} />
-              </button>
-              <span>Finding</span>
-              <span>Clause</span>
-              <span>Location</span>
-              <span>Status</span>
+            <div className="grid grid-cols-3 gap-3 max-sm:gap-2">
+              {(
+                [
+                  ["non-compliant", c.nonCompliant, "Need correction or justification"],
+                  ["missing", c.missing, "Required content not found"],
+                  ["compliant", c.compliant, "Requirements met in the document"],
+                ] as const
+              ).map(([kind, value, hint]) => (
+                <Card key={kind} className="p-4 max-sm:p-3">
+                  <p className="text-[13px] max-sm:text-[12px] max-sm:leading-tight">
+                    <KindText kind={kind} short />
+                  </p>
+                  <p className="mt-2.5 font-display text-[28px] leading-none font-semibold tabular-nums max-sm:text-[24px]">{value}</p>
+                  <p className="mt-1.5 text-[12.5px] text-fg-subtle max-sm:hidden">{hint}</p>
+                </Card>
+              ))}
             </div>
 
-            {visible.map((f) => {
-              const isSel = selected.includes(f.id);
-              return (
-                <div
-                  key={f.id}
-                  className={`grid grid-cols-[28px_minmax(0,2.4fr)_minmax(0,1fr)_minmax(0,1.4fr)_minmax(0,1fr)] items-center gap-3 border-t border-hairline px-4 py-3 text-[12.5px] ${
-                    isSel ? "bg-teal-tint/40" : "hover:bg-mist/50"
-                  } ${f.kind === "met" ? "text-navy/60" : ""}`}
-                >
-                  {f.kind === "met" ? (
-                    <span />
-                  ) : (
-                    <button
-                      type="button"
-                      aria-label={`Select ${f.title}`}
-                      onClick={() => setSelected((s) => (isSel ? s.filter((x) => x !== f.id) : [...s, f.id]))}
-                    >
-                      <Checkbox checked={isSel} />
-                    </button>
-                  )}
-                  <button type="button" onClick={() => setOpenId(f.id)} className="flex min-w-0 items-center gap-2.5 text-left">
-                    <SevDot kind={f.kind} severity={f.severity} />
-                    <span className={`truncate hover:underline ${f.kind === "met" ? "" : "font-medium"}`}>{f.title}</span>
-                  </button>
-                  <span className="truncate text-navy/60">
-                    {f.standard} {f.clause}
-                  </span>
-                  <span className="truncate text-navy/60">{f.location}</span>
-                  <span className="flex items-center gap-1.5">
-                    {f.assignee ? <Avatar id={f.assignee} /> : <CircleCheck size={15} className="text-teal-dark" />}
-                    <StatusText status={f.status} />
-                  </span>
-                </div>
-              );
-            })}
-
-            {visible.length === 0 && (
-              <p className="border-t border-hairline px-4 py-10 text-center text-[12.5px] text-navy/50">
-                Nothing matches &ldquo;{q}&rdquo;. Try a clause number such as 6.3.2.
-              </p>
-            )}
-            {(filter === "met" || filter === "all") && c.met > review.findings.filter((f) => f.kind === "met").length && (
-              <p className="border-t border-hairline px-4 py-3 text-[12px] text-navy/50">
-                Showing {review.findings.filter((f) => f.kind === "met").length} of {c.met} compliant checks. The full list is in
-                the exported report.
-              </p>
-            )}
+            <p className="rounded-[10px] bg-mist px-4 py-3 text-[13px] leading-[1.55] text-fg-muted">
+              This summary supports your review. It does not confirm compliance. Check each finding against the source document. The
+              responsible engineer keeps final approval.
+            </p>
           </div>
-        </div>
+
+          <section aria-labelledby="findings-title">
+            <SectionTitle id="findings-title" title="Findings" hint="Add a comment to any finding and it goes into the comment sheet" />
+            <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+              <SearchField value={q} onChange={setQ} placeholder="Search findings, clauses or comments" />
+              <FilterTabs label="Filter findings" options={filters} value={filter} onChange={setFilter} />
+            </div>
+
+            <div className={`mt-4 ${surface}`}>
+              <div
+                aria-hidden
+                className="hidden grid-cols-[150px_minmax(0,2fr)_130px_minmax(0,1.2fr)_90px] gap-x-5 border-b border-hairline px-5 py-2.5 text-[12.5px] text-fg-subtle lg:grid"
+              >
+                <span>Result</span>
+                <span>Finding</span>
+                <span>Clause</span>
+                <span>Location</span>
+                <span>Comment</span>
+              </div>
+
+              {visible.length === 0 ? (
+                <EmptyState title={`Nothing matches “${q.trim()}”`}>Try a clause number such as 6.3.2.</EmptyState>
+              ) : (
+                <ul className="divide-y divide-hairline">
+                  {visible.map((f) => (
+                    <li key={f.id}>
+                      <FindingRow f={f} onOpen={() => setOpenId(f.id)} />
+                    </li>
+                  ))}
+                </ul>
+              )}
+
+              {(filter === "compliant" || filter === "all") && c.compliant > listedCompliant && (
+                <p className="rounded-b-[14px] border-t border-hairline bg-mist/50 px-5 py-3 text-[13px] text-fg-subtle">
+                  Showing {listedCompliant} of {c.compliant} compliant checks. The full list is in the PDF report.
+                </p>
+              )}
+            </div>
+          </section>
+        </PageBody>
       </div>
 
-      {open && <FindingPanel review={review} finding={open} onClose={() => setOpenId(null)} />}
+      {/* What "PDF report" prints */}
+      <div className="hidden print:block">
+        <ReportPaper review={review} project={project} />
+      </div>
+
+      {open && <FindingPanel key={open.id} review={review} finding={open} readOnly={archived} onClose={() => setOpenId(null)} />}
+
+      {confirmArchive && (
+        <Dialog
+          title="Finish and archive this review?"
+          onClose={() => setConfirmArchive(false)}
+          actions={
+            <>
+              <button type="button" onClick={() => setConfirmArchive(false)} className={appButton("ghost", "h-9 px-3.5")}>
+                Cancel
+              </button>
+              {!exported && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    actions.commentSheet();
+                    archive();
+                  }}
+                  className={appButton("outline", "h-9 px-3.5")}
+                >
+                  Export comment sheet and archive
+                </button>
+              )}
+              <button type="button" onClick={archive} className={appButton("primary", "h-9 px-3.5")}>
+                {exported ? "Archive review" : "Archive without exporting"}
+              </button>
+            </>
+          }
+        >
+          <p>The findings report moves to the archive, read-only. You can reopen it later if something needs to change.</p>
+          {!exported && (
+            <p className="mt-3 rounded-[10px] bg-missing-bg px-3.5 py-2.5 text-[13.5px] text-navy">
+              The comment sheet hasn&rsquo;t been exported yet, so these findings aren&rsquo;t in the project comment sheet.
+            </p>
+          )}
+        </Dialog>
+      )}
     </>
+  );
+
+}
+
+/** Who reviewed it, when, against what, and whether the comment sheet is out. */
+function ReviewDetails({ review, exported, readOnly }: { review: Review; exported: boolean; readOnly: boolean }) {
+  const { project, setReviewer, toast } = useApp();
+  const reviewer = findPerson(review.reviewedBy);
+  const left = !project.members.includes(review.reviewedBy);
+  const lastExport = review.activity.find((a) => a.kind === "Comment sheet exported");
+
+  return (
+    <div className={`${surface} px-5 py-4`}>
+      <dl className="grid grid-cols-[repeat(auto-fit,minmax(170px,1fr))] gap-x-8 gap-y-4 text-[13.5px]">
+        <div>
+          <dt className="text-[12.5px] text-fg-subtle">Reviewed by</dt>
+          <dd className="mt-1">
+            {readOnly ? (
+              <Person id={review.reviewedBy} full />
+            ) : (
+              <label className="relative block max-w-[220px]">
+                <span className="sr-only">Reviewer</span>
+                <select
+                  value={left ? "" : review.reviewedBy}
+                  onChange={(e) => {
+                    setReviewer(review.id, e.target.value);
+                    toast(`Handed over to ${findPerson(e.target.value)?.name}`);
+                  }}
+                  className="h-8 w-full appearance-none rounded-[8px] bg-white pr-8 pl-2.5 text-[13.5px] font-medium ring-1 ring-edge outline-none transition-shadow hover:ring-navy/25 focus:ring-2 focus:ring-teal"
+                >
+                  {left && <option value="">{reviewer?.name ?? review.reviewedBy} (left the project)</option>}
+                  {project.members.map((id) => (
+                    <option key={id} value={id}>
+                      {findPerson(id)?.name}
+                    </option>
+                  ))}
+                </select>
+                <svg aria-hidden viewBox="0 0 16 16" className="pointer-events-none absolute top-1/2 right-2.5 size-3.5 -translate-y-1/2 text-fg-subtle">
+                  <path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </label>
+            )}
+            {left && !readOnly && <p className="mt-1.5 text-[12.5px] text-fg-subtle">Hand it over to someone still on the project.</p>}
+          </dd>
+        </div>
+        <div>
+          <dt className="text-[12.5px] text-fg-subtle">Review date</dt>
+          <dd className="mt-1 font-medium">{review.createdAt}</dd>
+        </div>
+        <div>
+          <dt className="text-[12.5px] text-fg-subtle">Comment sheet</dt>
+          <dd className="mt-1 font-medium">
+            {exported && lastExport ? (
+              <span className="inline-flex items-center gap-1.5 text-teal-dark">
+                <Check size={14} strokeWidth={2.5} aria-hidden /> Exported {shortDate(lastExport.when) === "Today" ? "today" : shortDate(lastExport.when)}
+              </span>
+            ) : (
+              <span className="text-fg-muted">Not exported yet</span>
+            )}
+          </dd>
+        </div>
+      </dl>
+    </div>
+  );
+}
+
+/*
+ * Desktop: result | finding | clause | location | comment
+ * Phone:   finding, then result and clause on one line
+ */
+function FindingRow({ f, onOpen }: { f: Finding; onOpen: () => void }) {
+  const ok = f.kind === "compliant";
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      className="group grid w-full grid-cols-1 items-center gap-x-5 gap-y-2 px-5 py-3.5 text-left text-[14px] transition-colors duration-150 hover:bg-mist/60 lg:grid-cols-[150px_minmax(0,2fr)_130px_minmax(0,1.2fr)_90px]"
+    >
+      <span className="text-[13px] max-lg:order-2">
+        <KindText kind={f.kind} short />
+      </span>
+      <span className={`min-w-0 leading-snug underline-offset-4 group-hover:underline max-lg:order-1 lg:truncate ${ok ? "text-fg-muted" : "font-medium"}`}>
+        {f.title}
+      </span>
+      <span className="max-lg:order-3">
+        <ClauseRef standard={f.standard} clause={f.clause} />
+      </span>
+      <span className="truncate text-[13.5px] text-fg-muted max-lg:hidden">{f.location}</span>
+      <span className="text-[13px] max-lg:order-4">
+        {f.comment ? (
+          <span className="inline-flex items-center gap-1.5 text-fg-muted" title={f.comment}>
+            <MessageSquareText size={14} className="text-teal-dark" aria-hidden /> Added
+          </span>
+        ) : ok ? null : (
+          <span className="text-fg-subtle max-lg:hidden">None</span>
+        )}
+      </span>
+    </button>
   );
 }
 
 /* ------------------------------------------------------------ detail panel */
 
-function FindingPanel({ review, finding, onClose }: { review: Review; finding: Finding; onClose: () => void }) {
+function FindingPanel({ review, finding, readOnly, onClose }: { review: Review; finding: Finding; readOnly: boolean; onClose: () => void }) {
   const { updateFinding, toast } = useApp();
-  const [note, setNote] = useState("");
+  const [comment, setComment] = useState(finding.comment ?? "");
+  const saved = comment.trim() === (finding.comment ?? "");
+  const issue = finding.kind !== "compliant";
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
@@ -356,16 +461,14 @@ function FindingPanel({ review, finding, onClose }: { review: Review; finding: F
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
 
-  const set = (patch: Partial<Finding>) => updateFinding(review.id, finding.id, patch);
-
   return (
-    <div className="fixed inset-0 z-40" role="dialog" aria-modal="true" aria-label={finding.title}>
+    <div className="fixed inset-0 z-40 print:hidden" role="dialog" aria-modal="true" aria-label={finding.title}>
       <button aria-label="Close" className="absolute inset-0 bg-navy/20" onClick={onClose} />
       <aside className="absolute inset-y-0 right-0 flex w-[440px] max-w-full flex-col bg-white shadow-[-20px_0_60px_-20px_rgba(14,42,71,.35)]">
         <div className="flex items-center justify-between border-b border-hairline px-5 py-3.5">
-          <span className="flex items-center gap-2 text-[12px] font-medium text-navy/60">
-            <SevDot kind={finding.kind} severity={finding.severity} />
-            {kindLabel(finding.kind, finding.severity)}
+          <span className="flex items-center gap-2 text-[12.5px] font-medium text-fg-muted">
+            <KindDot kind={finding.kind} />
+            {kindLabel(finding.kind)}
           </span>
           <button type="button" onClick={onClose} aria-label="Close" className="flex size-8 items-center justify-center rounded-[8px] hover:bg-mist">
             <X size={16} />
@@ -374,91 +477,59 @@ function FindingPanel({ review, finding, onClose }: { review: Review; finding: F
 
         <div className="flex-1 overflow-y-auto px-5 py-5">
           <h2 className="font-sans text-[18px] leading-snug font-semibold tracking-normal">{finding.title}</h2>
-          {finding.detail && <p className="mt-2 text-[13.5px] leading-[1.6] text-navy/70">{finding.detail}</p>}
+          {finding.detail && <p className="mt-2 text-[14px] leading-[1.6] text-fg-muted">{finding.detail}</p>}
 
-          <dl className="mt-5 grid grid-cols-2 gap-x-4 gap-y-3 rounded-[10px] bg-mist p-4 text-[12.5px]">
+          <dl className="mt-5 grid grid-cols-2 gap-x-4 gap-y-3 rounded-[10px] bg-mist p-4 text-[13px]">
             <div>
-              <dt className="text-navy/50">Standard</dt>
+              <dt className="text-fg-subtle">Standard</dt>
               <dd className="mt-0.5 font-medium">{finding.standard}</dd>
             </div>
             <div>
-              <dt className="text-navy/50">Section and clause</dt>
+              <dt className="text-fg-subtle">Section and clause</dt>
               <dd className="mt-0.5 font-medium">
                 {finding.section}, clause {finding.clause}
               </dd>
             </div>
             <div className="col-span-2">
-              <dt className="text-navy/50">{finding.kind === "missing" ? "Where it is expected" : "Location in the document"}</dt>
+              <dt className="text-fg-subtle">{finding.kind === "missing" ? "Where it is expected" : "Location in the document"}</dt>
               <dd className="mt-0.5 font-medium">{finding.location}</dd>
             </div>
           </dl>
 
-          {finding.kind !== "met" && (
-            <div className="mt-5 flex flex-col gap-4">
-              <label className="block text-[12.5px]">
-                <span className="font-semibold">Status</span>
-                <select
-                  value={finding.status}
-                  onChange={(e) => set({ status: e.target.value as FindingStatus })}
-                  className="mt-1.5 h-9 w-full rounded-[8px] bg-white px-2.5 ring-1 ring-line outline-none focus:ring-2 focus:ring-teal"
-                >
-                  {(["Open", "In review", "Resolved"] as const).map((s) => (
-                    <option key={s}>{s}</option>
-                  ))}
-                </select>
-              </label>
-              <label className="block text-[12.5px]">
-                <span className="font-semibold">Assigned to</span>
-                <select
-                  value={finding.assignee ?? ""}
-                  onChange={(e) => set({ assignee: (e.target.value || undefined) as MemberId | undefined })}
-                  className="mt-1.5 h-9 w-full rounded-[8px] bg-white px-2.5 ring-1 ring-line outline-none focus:ring-2 focus:ring-teal"
-                >
-                  <option value="">Unassigned</option>
-                  {members.map((m) => (
-                    <option key={m.id} value={m.id}>
-                      {m.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="block text-[12.5px]">
-                <span className="font-semibold">Engineer&apos;s note</span>
+          {issue && (
+            <label className="mt-5 block text-[13px]">
+              <span className="font-semibold">Comment for the comment sheet</span>
+              <span className="mt-0.5 block text-fg-subtle">Goes into the Reviewer comment column when you export.</span>
+              {readOnly ? (
+                <p className="mt-2 rounded-[8px] bg-mist px-3 py-2.5 text-[14px] leading-relaxed text-fg-muted">{finding.comment || "No comment."}</p>
+              ) : (
                 <textarea
-                  value={note}
-                  onChange={(e) => setNote(e.target.value)}
-                  rows={4}
-                  placeholder="Record your justification or the correction requested from the supplier."
-                  className="mt-1.5 w-full resize-none rounded-[8px] bg-white px-3 py-2 ring-1 ring-line outline-none placeholder:text-navy/35 focus:ring-2 focus:ring-teal"
+                  value={comment}
+                  onChange={(e) => setComment(e.target.value)}
+                  rows={5}
+                  placeholder="The correction or justification you want from the supplier."
+                  className="mt-2 w-full resize-none rounded-[8px] bg-white px-3 py-2 text-[14px] ring-1 ring-edge outline-none placeholder:text-fg-subtle focus:ring-2 focus:ring-teal"
                 />
-              </label>
-            </div>
+              )}
+            </label>
           )}
         </div>
 
-        {finding.kind !== "met" && (
+        {issue && !readOnly && (
           <div className="flex justify-end gap-2 border-t border-hairline px-5 py-3.5">
-            <button
-              type="button"
-              disabled={!note.trim()}
-              onClick={() => {
-                toast("Note saved");
-                setNote("");
-              }}
-              className={appButton("outline", "px-4 py-2")}
-            >
-              Save note
+            <button type="button" onClick={onClose} className={appButton("ghost", "px-4 py-2")}>
+              Close
             </button>
             <button
               type="button"
-              disabled={finding.status === "Resolved"}
+              disabled={saved}
               onClick={() => {
-                set({ status: "Resolved" });
-                toast("Finding marked resolved");
+                updateFinding(review.id, finding.id, { comment: comment.trim() || undefined });
+                toast(comment.trim() ? "Comment saved" : "Comment removed");
               }}
               className={appButton("primary", "px-4 py-2")}
             >
-              {finding.status === "Resolved" ? "Resolved" : "Mark resolved"}
+              Save comment
             </button>
           </div>
         )}
