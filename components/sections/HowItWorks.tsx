@@ -62,18 +62,18 @@ function ResultPreview() {
 
 const steps = [
   {
-    title: "Describe it",
-    body: "A few taps: what kind of document it is, what the umbilical is made of, and which project stage you're at.",
+    title: "Describe the document",
+    body: "Select the document type, the umbilical type, and the project phase.",
     preview: <DescribePreview />,
   },
   {
-    title: "Upload it",
-    body: "Choose the standards to check against and drop in the PDF. Subvera reads the whole thing in a few minutes.",
+    title: "Upload the PDF",
+    body: "Choose the standards to check against and upload the document. Subvera reads the full document, which takes a few minutes.",
     preview: <UploadPreview />,
   },
   {
-    title: "Read the results",
-    body: "Each issue tells you which rule it breaks and where it is in the document. Export it for your records.",
+    title: "Review the findings",
+    body: "Each finding identifies the clause concerned and where it applies in the document. Export the findings as PDF or Word.",
     preview: <ResultPreview />,
   },
 ];
@@ -92,7 +92,7 @@ export function HowItWorks() {
         <div className="flex flex-col items-center text-center max-sm:items-start max-sm:text-left">
           <h2 className="t-h2 max-w-[640px] text-balance">How a review works</h2>
           <p className="t-body-lg mt-6 max-w-[480px] text-pretty text-navy/70 max-md:mt-4">
-            Three steps and about five minutes. Most of that is you reading the results.
+            Three steps that take minutes, most of which is spent reviewing the findings.
           </p>
         </div>
 
@@ -119,9 +119,10 @@ export function HowItWorks() {
           </ol>
         </div>
 
-        <p className="mx-auto mt-20 max-w-[620px] text-center text-[15px] leading-[1.6] text-navy/60 max-md:mt-14 max-sm:text-left">
-          Subvera doesn&apos;t approve or certify anything. It points your engineers at what may have been missed, and they
-          decide what happens next.
+        <p className="mx-auto mt-20 max-w-[620px] text-center text-[15px] leading-[1.6] text-balance text-navy/60 max-md:mt-14 max-sm:text-left">
+          {/* Keep "non-compliances" whole: breaking at its hyphen reads as two words */}
+          Subvera does not confirm or certify compliance. It identifies <span className="whitespace-nowrap">non-compliances</span>{" "}
+          and missing information for the engineer to assess. The engineer reviews every finding and retains final approval.
         </p>
       </div>
     </section>

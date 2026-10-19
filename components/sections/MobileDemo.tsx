@@ -62,20 +62,21 @@ const SCRIPTS: Record<View, Step<M>[]> = {
   ],
 };
 
-const ORDER = ["findings", "setup", "report"] as const satisfies readonly View[];
+// Same order as the desktop demo and a real review.
+const ORDER = ["setup", "findings", "report"] as const satisfies readonly View[];
 
 const TABS: { id: View; label: string; icon: LucideIcon; describe: string }[] = [
-  {
-    id: "findings",
-    label: "Findings",
-    icon: ListChecks,
-    describe: "Findings on a phone: filtered to non-compliant items, with the first one opened and a comment added for the comment sheet.",
-  },
   {
     id: "setup",
     label: "Setup",
     icon: SlidersHorizontal,
     describe: "Review setup on a phone: picking the umbilical's type, construction and components brings 45 requirements into scope.",
+  },
+  {
+    id: "findings",
+    label: "Findings",
+    icon: ListChecks,
+    describe: "Findings on a phone: filtered to non-compliant items, with the first one opened and a comment added for the comment sheet.",
   },
   { id: "report", label: "Export", icon: FileText, describe: "The findings on a phone, exported as a comment sheet and added to the exports." },
 ];

@@ -4,7 +4,7 @@ type FeatureRowProps = {
   id?: string;
   bg: "mist" | "white";
   reverse?: boolean;
-  title: string;
+  title: ReactNode;
   body: ReactNode;
   extra?: ReactNode;
   visual: ReactNode;
@@ -35,7 +35,8 @@ export function Stats({ items }: { items: { value: string; label: string }[] }) 
       {items.map((m) => (
         <div key={m.value} className="px-5 first:pl-0">
           <dt className="sr-only">{m.label}</dt>
-          <dd className="font-display text-[28px] leading-none font-semibold">{m.value}</dd>
+          {/* One size down on phones so a word value like "Minutes" fits a third of the width */}
+          <dd className="font-display text-[28px] leading-none font-semibold max-sm:text-[20px]">{m.value}</dd>
           <dd className="mt-2 text-[13px] leading-[1.45] text-navy/60">{m.label}</dd>
         </div>
       ))}

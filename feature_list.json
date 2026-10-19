@@ -1,0 +1,284 @@
+{
+  "project": "subvera",
+  "last_updated": "2026-10-19",
+  "rules": {
+    "single_active_feature": true,
+    "passing_requires_evidence": true,
+    "do_not_skip_verification": true,
+    "verify_against": "npm run dev at http://localhost:3000, desktop width and 390px phone width. State resets on reload, so run each feature's steps from a fresh load."
+  },
+  "status_legend": {
+    "not_started": "Work has not begun.",
+    "unverified": "Code exists but the verification steps have not been run. Treat as not passing.",
+    "in_progress": "The feature is the current active task.",
+    "blocked": "Work cannot continue until a documented blocker is resolved.",
+    "passing": "Required verification has passed and evidence is recorded."
+  },
+  "features": [
+    {
+      "id": "harness-001",
+      "priority": 1,
+      "area": "harness",
+      "title": "Standard startup and baseline verification",
+      "user_visible_behavior": "A fresh session can run ./init.sh and get install, lint, typecheck, production build and a route smoke test, ending with the dev server command.",
+      "status": "passing",
+      "verification": [
+        "Run ./init.sh from the repo root.",
+        "Verify lint and typecheck report no errors.",
+        "Verify next build succeeds.",
+        "Verify scripts/smoke.sh prints ok for every route and redirect and ends with 'Smoke test passed.'",
+        "Change one expected title in a copy of scripts/smoke.sh and verify it fails and stops its server."
+      ],
+      "evidence": [
+        "2026-10-19: ./init.sh ran clean. Lint 0 problems, tsc 0 errors, next build OK (14 static pages, /reviews/[id] and /archive/[id] partial prerender).",
+        "2026-10-19: smoke ok for /, /sign-in, /reviews, /reviews/new, /reviews/r-104, /archive, /archive/r-102, /members, /settings, 404 page, and /dashboard, /documents, /reports redirects.",
+        "2026-10-19: negative check with a wrong /settings title printed FAIL and 'Smoke test failed.'; port 3100 was free afterwards."
+      ],
+      "notes": "Set up in session 001. See claude-progress.md."
+    },
+    {
+      "id": "docs-001",
+      "priority": 2,
+      "area": "docs",
+      "title": "README matches the current routes",
+      "user_visible_behavior": "README's route table lists the screens that exist and says which old routes redirect where.",
+      "status": "passing",
+      "verification": [
+        "Compare the README route table with the folders under app/ and redirects() in next.config.ts.",
+        "Verify every listed route is in scripts/smoke.sh and passes."
+      ],
+      "evidence": [
+        "2026-10-19: README table updated to /, /sign-in, /reviews, /reviews/new, /reviews/[id], /archive, /archive/[id], /members, /settings plus the three redirects; all covered by the passing smoke run."
+      ],
+      "notes": "README still listed /dashboard, /reports and /documents as screens after they were folded into Reviews and Archive (commit 07fcc7f)."
+    },
+    {
+      "id": "landing-001",
+      "priority": 4,
+      "area": "landing",
+      "title": "Landing page with scripted product demo",
+      "user_visible_behavior": "The landing page shows the hero, then a scripted demo of the app (moving cursor on desktop, taps on phones), then the feature rows, pricing and final call to action.",
+      "status": "unverified",
+      "verification": [
+        "Open /.",
+        "At desktop width, verify the demo under the hero plays with a moving cursor and loops without layout jumps.",
+        "At 390px width, verify the phone demo plays with taps instead of a cursor.",
+        "Scroll to the bottom and verify every section renders with no horizontal scroll.",
+        "Verify the nav's sign-in link goes to /sign-in."
+      ],
+      "evidence": [],
+      "notes": "Scripts for the demo are at the top of components/sections/ProductShot.tsx and MobileDemo.tsx; engine in demo.tsx."
+    },
+    {
+      "id": "landing-003",
+      "priority": 3,
+      "area": "landing",
+      "title": "Client copy and order feedback on the landing page (2026-10-19)",
+      "user_visible_behavior": "The landing page shows the client's revised copy in the hero, problem, how-it-works, feature and audience sections. The product demo tabs run Review setup, Findings, Export on desktop and phones, and play in that order.",
+      "status": "passing",
+      "verification": [
+        "npm run verify passes.",
+        "Open / at desktop width. Check the hero pill reads 'For subsea umbilical engineering teams' and still links to #pricing, and the subheading says 'flags'.",
+        "Check the desktop demo tabs read Review setup, Findings, Export and the demo starts on Review setup, then moves to Findings, then Export.",
+        "At 390px width, check the phone demo tabs read Setup, Findings, Export and play in that order.",
+        "Check the problem, How a review works, hours-to-minutes, non-compliances and audience sections show the client's text word for word, apart from the agreed grammar and full stop fixes.",
+        "Check the audience note sits under the heading at desktop and phone width.",
+        "Check no section overflows horizontally at 390px and the stat row doesn't wrap awkwardly."
+      ],
+      "evidence": [
+        "2026-10-19: npm run verify passed after all changes (lint, typecheck, build, smoke).",
+        "2026-10-19: in Chrome at 1440px, all 22 new strings found word for word in the rendered page; none of the 7 old strings remain. Hero pill text correct, href #pricing, 'Learn more' kept.",
+        "2026-10-19: desktop tabs read Review setup, Findings, Export, with Review setup first and active. Logged autoplay cycling Review setup -> Findings -> Export -> Review setup.",
+        "2026-10-19: in a 390px frame, phone tabs read Setup, Findings, Export; autoplay logged Setup @0s -> Findings @8.5s -> Export @15.5s -> Setup @21s.",
+        "2026-10-19: no horizontal scroll at 390px or 360px. Audience note sits under the heading at both widths. No console errors after console tracking started (it began after the first page load).",
+        "2026-10-19: layout fixes found during the check: 'Minutes' overflowed its stat cell on phones (109px text, 95px room), so stat values are now 20px under sm (78/86px at 360). The disclaimer's last word was orphaned (fixed with text-balance). 'non-compliances' and 'add-on' broke at the hyphen (kept whole with whitespace-nowrap). The audience heading widened from 560px to 720px once the note moved under it."
+      ],
+      "notes": "Agreed with the user: pill keeps 'Learn more' link to pricing; phone demo reordered too; stat '~5 min' becomes 'Minutes'; 'takes' fixed to 'take'; body sentences get full stops, headings don't; 'PDF or Word' kept as the client wrote it (matches Pricing; the app prototype only exports PDF and a comment sheet)."
+    },
+    {
+      "id": "auth-001",
+      "priority": 5,
+      "area": "auth",
+      "title": "Sign in (prototype)",
+      "user_visible_behavior": "A user fills in the sign-in form and lands on /reviews. No credentials are checked.",
+      "status": "unverified",
+      "verification": [
+        "Open /sign-in.",
+        "Verify the brand panel shows at desktop width and is hidden at 390px.",
+        "Toggle the password visibility button and verify the field switches between hidden and shown.",
+        "Submit the form and verify the browser lands on /reviews.",
+        "From /reviews, use Sign out in the sidebar and verify it returns to /sign-in."
+      ],
+      "evidence": [],
+      "notes": "Front end only. Real auth is auth-002."
+    },
+    {
+      "id": "reviews-001",
+      "priority": 6,
+      "area": "reviews",
+      "title": "Reviews in progress list",
+      "user_visible_behavior": "A user sees the current project's non-archived reviews with results, export status, reviewer and date, and can search them.",
+      "status": "unverified",
+      "verification": [
+        "Open /reviews.",
+        "Verify the list shows the sample project's Complete reviews (r-104, r-103) with results summaries and 'Exported' or 'Ready to export' pills.",
+        "Type part of a document name into search and verify the list narrows.",
+        "Type a term that matches nothing and verify the 'Nothing matches' empty state.",
+        "Click a review and verify it opens /reviews/<id>."
+      ],
+      "evidence": [],
+      "notes": ""
+    },
+    {
+      "id": "reviews-002",
+      "priority": 7,
+      "area": "reviews",
+      "title": "Start a new review (wizard)",
+      "user_visible_behavior": "A user steps through Document, Umbilical scope, Project scope, and Standards and upload, then starts a review and lands on its progress screen. A revision that has already been reviewed can't be started again.",
+      "status": "unverified",
+      "verification": [
+        "Open /reviews/new.",
+        "Verify the stepper shows the wizard steps and step 1 is pre-filled so Continue is enabled.",
+        "On each step, clear a required choice and verify Continue disables with the matching hint, then restore it.",
+        "On the last step, remove the file and verify 'Add the PDF to continue.'.",
+        "Start the review with the pre-filled Rev C file and verify the browser lands on /reviews/r-105 showing 'Checking your document'.",
+        "Go back to /reviews/new, reach the last step and verify the same file now shows 'Already reviewed' with a link to the existing review."
+      ],
+      "evidence": [],
+      "notes": "Draft and ids live in AppContext, so this must be run in one page session without reloading."
+    },
+    {
+      "id": "reviews-003",
+      "priority": 8,
+      "area": "reviews",
+      "title": "Review progress (simulated run)",
+      "user_visible_behavior": "A running review shows progress through its checks for about 9 seconds, then shows the findings with a 'Review complete' toast. It can be cancelled or skipped to results.",
+      "status": "unverified",
+      "verification": [
+        "Start a review from /reviews/new.",
+        "Verify the progress percentage and checklist advance and the toast 'Review complete' appears after about 9 s.",
+        "Start another review and click 'Skip to results (demo)'; verify the findings appear straight away.",
+        "Start another review and click 'Cancel review'; verify it returns to /reviews and the review is not listed."
+      ],
+      "evidence": [],
+      "notes": ""
+    },
+    {
+      "id": "reviews-004",
+      "priority": 9,
+      "area": "reviews",
+      "title": "Findings: filter, search, comment, hand over, export, archive",
+      "user_visible_behavior": "On a complete review a user filters findings by kind, searches, opens a finding's detail, adds a comment, changes the reviewer, exports the comment sheet or PDF, and archives the review.",
+      "status": "unverified",
+      "verification": [
+        "Open /reviews/r-104.",
+        "Click each filter tab (All, Non-compliant, Missing information, Compliant) and verify the counts match the rows shown.",
+        "Search '6.3.2' and verify only the matching finding remains.",
+        "Open a finding, add a comment, close it, and verify the comment shows in the row.",
+        "Change 'Reviewed by' and verify the toast 'Handed over to <name>'.",
+        "Click the comment sheet export and verify a file downloads, the toast says 'Comment sheet downloaded' and the details panel no longer says 'Not exported yet'.",
+        "Open /reviews/r-104?finding=<id> directly and verify that finding's detail opens.",
+        "Archive the review, confirm in the dialog, and verify the browser lands on /archive/r-104 with the toast 'Review archived'."
+      ],
+      "evidence": [],
+      "notes": "The PDF export calls window.print(), which opens a native dialog that blocks browser automation. Check it by hand or skip it and record that."
+    },
+    {
+      "id": "archive-001",
+      "priority": 10,
+      "area": "archive",
+      "title": "Archive list and archived report",
+      "user_visible_behavior": "A user sees archived reviews, opens one to see details, history and a report preview, and can reopen it as a review.",
+      "status": "unverified",
+      "verification": [
+        "Open /archive and verify r-102 and r-101 are listed with reviewed and archived dates.",
+        "Search the list and verify it narrows, and that a non-matching term shows the empty state.",
+        "Open /archive/r-102 and verify Details, History and the Report preview render.",
+        "Open /archive/r-104 (not archived) and verify the 'Not in the archive' state links to the review.",
+        "Reopen r-102, confirm, and verify it lands on /reviews/r-102 with the toast 'Review reopened'."
+      ],
+      "evidence": [],
+      "notes": ""
+    },
+    {
+      "id": "team-001",
+      "priority": 11,
+      "area": "team",
+      "title": "Members",
+      "user_visible_behavior": "A user sees the project's members and former members and can remove a member after confirming.",
+      "status": "unverified",
+      "verification": [
+        "Open /members and verify current members and seat usage show.",
+        "Click the add-member button and verify the toast about asking the company administrator.",
+        "Remove a member, confirm in the dialog, and verify they move to Former members with a toast.",
+        "Verify reviews they ran still show their name in the archive."
+      ],
+      "evidence": [],
+      "notes": ""
+    },
+    {
+      "id": "team-002",
+      "priority": 12,
+      "area": "team",
+      "title": "Project settings and default standards",
+      "user_visible_behavior": "A user renames the project and changes its default standards, and the next new review starts with those standards ticked.",
+      "status": "unverified",
+      "verification": [
+        "Open /settings, change the project name and a default standard, save, and verify the toast 'Settings saved'.",
+        "Verify the sidebar shows the new project name.",
+        "Open /reviews/new, go to the last step and verify the standards match the new defaults."
+      ],
+      "evidence": [],
+      "notes": ""
+    },
+    {
+      "id": "shell-001",
+      "priority": 13,
+      "area": "shell",
+      "title": "App shell: navigation, project switcher, mobile menu",
+      "user_visible_behavior": "The sidebar shows Reviews, Archive (with counts), Members and Settings, highlights the current page and switches projects. On phones a menu button opens the same navigation.",
+      "status": "unverified",
+      "verification": [
+        "On /reviews at desktop width, click each nav link and verify the active highlight follows.",
+        "Switch to the second project and verify the browser goes to /reviews and the list shows that project's reviews.",
+        "At 390px width, open the menu, navigate, and verify the menu closes; close it again with the close button.",
+        "Verify /dashboard, /documents and /reports redirect to /reviews, /reviews and /archive."
+      ],
+      "evidence": [],
+      "notes": ""
+    },
+    {
+      "id": "auth-002",
+      "priority": 21,
+      "area": "backend",
+      "title": "Real authentication",
+      "user_visible_behavior": "Sign-in checks credentials and app routes are only reachable when signed in.",
+      "status": "not_started",
+      "verification": [],
+      "evidence": [],
+      "notes": "Listed under 'Not wired up yet' in README. Needs a product decision on the auth provider before it can be specified; write verification steps then. Read node_modules/next/dist/docs/01-app/02-guides/authentication-with-cache-components.md first."
+    },
+    {
+      "id": "backend-001",
+      "priority": 22,
+      "area": "backend",
+      "title": "Persist reviews, uploads and the review job",
+      "user_visible_behavior": "Uploaded documents, reviews and findings survive a reload and come from a real review job instead of the sample result set.",
+      "status": "not_started",
+      "verification": [],
+      "evidence": [],
+      "notes": "Listed under 'Not wired up yet' in README. Replaces the in-memory state in components/app/AppContext.tsx. Needs backend and API design first; split into smaller features before starting."
+    },
+    {
+      "id": "landing-002",
+      "priority": 23,
+      "area": "landing",
+      "title": "Demo request form submission",
+      "user_visible_behavior": "Submitting the demo request form sends the request somewhere the team will see it and confirms to the visitor.",
+      "status": "not_started",
+      "verification": [],
+      "evidence": [],
+      "notes": "Listed under 'Not wired up yet' in README. Needs a destination (email, CRM) decided first."
+    }
+  ]
+}

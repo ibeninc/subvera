@@ -3,17 +3,17 @@ import { StackCard } from "@/components/ui/StackCard";
 const audiences = [
   {
     title: "Operators",
-    body: "Check what suppliers send you, consistently, and catch gaps before they hold up the schedule.",
+    body: "Check supplier documents consistently and identify non-compliances and missing information before they delay the schedule.",
     docs: "Supplier design reports and data books",
   },
   {
     title: "SURF contractors",
-    body: "Keep on top of review across several live projects without adding engineers to do it.",
+    body: "Maintain review coverage across several live projects without adding engineering resource.",
     docs: "Design, fabrication and FAT documents across projects",
   },
   {
     title: "Engineering consultancies",
-    body: "Give clients quicker reviews that hold to the same standard every time.",
+    body: "Deliver third-party reviews faster, with the same checks applied to every document.",
     docs: "Third-party reviews delivered to clients",
   },
 ];
@@ -23,12 +23,11 @@ export function WhoItIsFor() {
   return (
     <section id="who-it-is-for" className="section bg-white">
       <div className="container-x">
-        <div className="flex flex-wrap items-end justify-between gap-x-16 gap-y-6">
-          <h2 className="t-h2 max-w-[560px] text-balance">Made for the people who review umbilical documents</h2>
-          <p className="max-w-[340px] text-[15px] leading-[1.6] text-navy/60">
-            Works with API 17E and API 17L1 today. Your own company specifications can be added on request.
-          </p>
-        </div>
+        <h2 className="t-h2 max-w-[720px] text-balance">Built for teams that review umbilical documents</h2>
+        <p className="mt-6 max-w-[480px] text-[15px] leading-[1.6] text-navy/60 max-md:mt-4">
+          Covers API 17E and API 17L1. Review against your own internal specifications is available as an{" "}
+          <span className="whitespace-nowrap">add-on</span>.
+        </p>
 
         {/* Phones: a quiet list with dividers. */}
         <ul className="mt-10 divide-y divide-line border-y border-line md:hidden">

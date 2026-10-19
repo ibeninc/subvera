@@ -10,18 +10,18 @@ import { MobileDemo } from "@/components/sections/MobileDemo";
 
 const tabs: { id: View; label: string; icon: LucideIcon; chip: string; describe: string }[] = [
   {
-    id: "findings",
-    label: "Findings",
-    icon: ListChecks,
-    chip: "bg-teal text-navy",
-    describe: "The findings list, filtered to non-compliant items, with the first finding opened and a comment added for the comment sheet.",
-  },
-  {
     id: "setup",
     label: "Review setup",
     icon: SlidersHorizontal,
     chip: "bg-navy text-white",
     describe: "Review setup: picking the umbilical's type, construction and components brings 45 requirements into scope.",
+  },
+  {
+    id: "findings",
+    label: "Findings",
+    icon: ListChecks,
+    chip: "bg-teal text-navy",
+    describe: "The findings list, filtered to non-compliant items, with the first finding opened and a comment added for the comment sheet.",
   },
   {
     id: "report",
@@ -60,7 +60,8 @@ const SCRIPTS: Record<View, Step<Demo>[]> = {
   ],
 };
 
-const ORDER = ["findings", "setup", "report"] as const satisfies readonly View[];
+// Same order as a real review: set it up, read the findings, export them.
+const ORDER = ["setup", "findings", "report"] as const satisfies readonly View[];
 
 /**
  * Product showcase under the hero: a tinted band with a curved notch holding three tabs,

@@ -15,7 +15,14 @@ npm install
 npm run dev      # http://localhost:3000
 npm run build    # production build, same as Vercel runs
 npm run lint
+npm run verify   # lint + typecheck + build + route smoke test
 ```
+
+## Working with coding agents
+
+Agents start from `AGENTS.md` (Claude Code reads it through `CLAUDE.md`). Run `./init.sh` to install and verify.
+Feature state is in `feature_list.json`, the session log in `claude-progress.md`, and the rest of the harness in
+`docs/harness/`.
 
 ## Deploy (Vercel)
 
@@ -30,14 +37,15 @@ Commit `package-lock.json` with any dependency change so Vercel installs exactly
 | Route | Screen |
 |---|---|
 | `/` | Landing page, with a scripted product demo under the hero (cursor on desktop, taps on phones) |
-| `/sign-in` | Sign in (prototype: goes straight to `/dashboard`) |
-| `/dashboard` | Project overview: high-severity findings, open findings by document, recent reviews |
-| `/reviews` | All reviews, searchable |
-| `/reviews/new` | New review: document, umbilical scope, project scope, standards and upload |
-| `/reviews/[id]` | Review in progress (simulated, about 9 s), then findings: filters, search, bulk status, detail panel |
-| `/reports` | Report preview, Export PDF (print) and Export Word, export history |
-| `/documents` | Project documents, with replaced revisions marked |
+| `/sign-in` | Sign in (prototype: goes straight to `/reviews`) |
+| `/reviews` | Reviews in progress for the selected project, searchable |
+| `/reviews/new` | New review wizard: document, umbilical scope, project scope, standards and upload |
+| `/reviews/[id]` | Review in progress (simulated, about 9 s), then findings: filters, search, comments, comment sheet and PDF export, archive |
+| `/archive` | Archived reports, searchable |
+| `/archive/[id]` | Archived report: details, history, report preview, reopen |
 | `/members`, `/settings` | Team and project settings |
+
+`/dashboard` and `/documents` redirect to `/reviews`, and `/reports` to `/archive` (`next.config.ts`).
 
 The app keeps its state in memory for the session (`components/app/AppContext.tsx`); reloading resets it.
 

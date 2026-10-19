@@ -4,7 +4,7 @@ import { ButtonLink } from "@/components/ui/Button";
 import { Waterline } from "@/components/visuals/Waterline";
 
 /*
- * Centred hero with a drifting teal waterline along its bottom edge: announcement pill, one-line headline,
+ * Centred hero with a drifting teal waterline along its bottom edge: audience pill, one-line headline,
  * two-line explanation, two actions. The product showcase follows directly below.
  */
 export function Hero() {
@@ -17,7 +17,7 @@ export function Hero() {
           className="group inline-flex items-center rounded-pill bg-white text-[13px] ring-1 ring-line transition-shadow hover:ring-navy/25"
         >
           <span className="py-1.5 pr-3 pl-4 font-medium max-sm:py-2 max-sm:pr-2 max-sm:pl-4 max-sm:text-[14px]">
-            New: review against your own specs
+            For subsea umbilical engineering teams
           </span>
           {/* desktop: divided "Learn more" segment */}
           <span className="flex items-center gap-1 border-l border-line py-1.5 pr-3.5 pl-3 text-navy/55 group-hover:text-navy max-sm:hidden">
@@ -36,7 +36,7 @@ export function Hero() {
         <h1 className="t-display-xl mt-8 max-w-[16ch] text-balance">Document reviews in minutes, not hours</h1>
 
         <p className="t-body-lg mt-6 max-w-[620px] text-pretty text-navy/70">
-          Subvera checks subsea umbilical documents against API 17E and API 17L1, then lists what doesn&apos;t comply and
+          Subvera checks subsea umbilical documents against API 17E and API 17L1, then flags what doesn&apos;t comply and
           what&apos;s missing, clause by clause.
         </p>
 

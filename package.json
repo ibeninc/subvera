@@ -9,7 +9,10 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "typecheck": "tsc --noEmit",
+    "smoke": "bash scripts/smoke.sh",
+    "verify": "npm run lint && npm run typecheck && npm run build && npm run smoke"
   },
   "dependencies": {
     "embla-carousel-react": "^8.6.0",

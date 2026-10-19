@@ -34,11 +34,10 @@ export function ProblemSolution() {
     <section className="section bg-white">
       <div className="container-x">
         <div className="mx-auto max-w-[720px] text-center max-sm:text-left">
-          <h2 className="t-h2 text-balance">A hundred documents a project, all checked by hand.</h2>
+          <h2 className="t-h2 text-balance">100+ documents per project, each reviewed manually</h2>
           <p className="t-body-lg mx-auto mt-6 max-w-[600px] text-pretty text-navy/70">
-            Every umbilical project produces stacks of design reports, procedures and test plans. Someone has to read each one
-            against the standard, usually with the schedule pressing. It takes hours, it costs real money, and things slip
-            through.
+            A single umbilical project can produce more than 100 documents, including design reports, procedures and test
+            plans. Each must be reviewed against the applicable standard, usually under schedule pressure.
           </p>
         </div>
 

@@ -26,17 +26,17 @@ export default function Home() {
         <FeatureRow
           id="what-you-get"
           bg="mist"
-          title="Get most of the day back on every document"
+          title="Reduce review time per document from hours to minutes"
           body={
             <p>
-              A careful manual review can take several hours. With Subvera it&apos;s closer to five minutes, even on a
-              conservative estimate. Your team can spend the time on the engineering questions that actually need them.
+              A manual review can take several hours. With Subvera, a review takes minutes, and the checks are applied
+              consistently every time. Engineering time is then spent on the technical questions that need it.
             </p>
           }
           extra={
             <Stats
               items={[
-                { value: "~5 min", label: "per document review" },
+                { value: "Minutes", label: "per document review" },
                 { value: "100+", label: "documents on a typical project" },
                 { value: "0", label: "per-document charges" },
               ]}
@@ -48,16 +48,20 @@ export default function Home() {
         <FeatureRow
           bg="white"
           reverse
-          title="Catch problems before they turn into rework"
+          title={
+            <>
+              Identify <span className="whitespace-nowrap">non-compliances</span> and missing information before they cause rework
+            </>
+          }
           body={
             <>
               <p>
-                Every finding tells you the standard, the clause and where it sits in the document, so checking it takes
-                seconds rather than a search.
+                Each finding states the standard, the clause and its location in the document, so the engineer can verify it
+                directly without searching.
               </p>
               <p>
-                The same checks run every time, so the result doesn&apos;t depend on who did the review or how busy they
-                were that week.
+                The checks are applied consistently every time, so the result does not depend on who carried out the review
+                or the time available.
               </p>
             </>
           }
